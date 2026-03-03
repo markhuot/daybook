@@ -355,6 +355,10 @@ export function taskListItemView(
     return {
         dom,
         contentDOM,
+        stopEvent(event: Event) {
+            const target = event.target as HTMLElement;
+            return timerEl.contains(target) || checkboxWrapper.contains(target);
+        },
         update(updatedNode: Node) {
             if (updatedNode.type !== view.state.schema.nodes.task_list_item) {
                 return false;
