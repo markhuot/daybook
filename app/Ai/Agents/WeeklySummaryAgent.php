@@ -41,7 +41,7 @@ Write a response in markdown with two sections:
 
 Keep the total response under 150 words.
 
-IMPORTANT: Return ONLY the summary and suggested goals. Do not include any introductory text (e.g. "Here's a summary..."), closing remarks, follow-up questions, or conversational filler. Your entire response should be the summary and goals content itself — nothing before it, nothing after it.
+IMPORTANT: Return ONLY the summary and suggested goals. Do not include any commentary or conversational lanuage (e.g. "Here's a summary..."), closing remarks, follow-up questions, or conversational filler. Your entire response should be the summary and goals content itself — nothing before it, nothing after it.
 PROMPT;
     }
 }
