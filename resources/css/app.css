@@ -116,6 +116,7 @@
     right: 100%;
     top: 0.4rem;
     margin-right: 0.5em;
+    z-index: 1;
 }
 
 .ProseMirror .task-checkbox-display {
@@ -125,6 +126,7 @@
     border: 2px solid #d1d5db;
     border-radius: 50%;
     flex-shrink: 0;
+    background-color: white;
 }
 
 .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {
@@ -173,6 +175,15 @@
     color: #6b7280;
 }
 
+.ProseMirror .task-timer--running,
+.ProseMirror .task-timer--paused {
+    margin-right: 0.75em;
+    padding: 0.15em calc(1.5em + 10px) 0.15em 0.5em;
+    background-color: #f3f4f6;
+    border-radius: 9999px;
+    transform: translateX(6px);
+}
+
 .ProseMirror .task-timer--running {
     color: #6b7280;
 }
@@ -192,6 +203,43 @@
     outline: none;
     background: white;
     color: #374151;
+}
+
+/* Timer edit popup (rendered outside ProseMirror in document.body) */
+.task-timer-popup {
+    background: #f3f4f6;
+    border: none;
+    border-radius: 0;
+    padding: 10px 12px;
+    box-shadow: 2px 3px 12px rgba(0, 0, 0, 0.12);
+    transform: rotate(-2deg);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.task-timer-popup-input {
+    width: 8em;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    padding: 4px 6px;
+    outline: none;
+    background: white;
+    color: #374151;
+}
+
+.task-timer-popup-input:focus {
+    border-color: #9ca3af;
+}
+
+.task-timer-popup-hint {
+    font-size: 0.6875rem;
+    color: #9ca3af;
+    white-space: nowrap;
 }
 
 .ProseMirror .task-timer-icon {
@@ -223,6 +271,7 @@
 
     .ProseMirror .task-checkbox-display {
         border-color: #4b5563;
+        background-color: #181618;
     }
 
     .ProseMirror li::marker {
@@ -250,6 +299,11 @@
         color: #9ca3af;
     }
 
+    .ProseMirror .task-timer--running,
+    .ProseMirror .task-timer--paused {
+        background-color: #262426;
+    }
+
     .ProseMirror .task-timer--running {
         color: #9ca3af;
     }
@@ -262,6 +316,25 @@
         border-color: #4b5563;
         background: #1f2937;
         color: #e5e7eb;
+    }
+
+    .task-timer-popup {
+        background: #131113;
+        box-shadow: 2px 3px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .task-timer-popup-input {
+        border-color: #4b5563;
+        background: #181618;
+        color: #e5e7eb;
+    }
+
+    .task-timer-popup-input:focus {
+        border-color: #6b7280;
+    }
+
+    .task-timer-popup-hint {
+        color: #6b7280;
     }
 }
 

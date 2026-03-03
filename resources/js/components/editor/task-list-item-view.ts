@@ -1,5 +1,5 @@
 import { Node } from 'prosemirror-model';
-import { EditorView, NodeView } from 'prosemirror-view';
+import { EditorView, NodeView, ViewMutationRecord } from 'prosemirror-view';
 
 /**
  * Format a number of seconds into a human-readable string.
@@ -220,41 +220,73 @@ export function taskListItemView(
             });
         }
 
+        const currentSeconds = node.attrs.timerSeconds || 0;
+
+        // Build a popup container outside ProseMirror's DOM so the editor
+        // can't interfere with focus.
+        const popup = document.createElement('div');
+        popup.classList.add('task-timer-popup');
+
         const input = document.createElement('input');
         input.type = 'text';
-        input.classList.add('task-timer-input');
-        const currentSeconds = node.attrs.timerSeconds || 0;
-        input.value = currentSeconds > 0 ? formatTime(currentSeconds) : '';
+        input.classList.add('task-timer-popup-input');
+        input.value = currentSeconds > 0 ? formatTimeFull(currentSeconds) : '';
         input.placeholder = '0m 0s';
 
-        timerEl.textContent = '';
-        timerEl.className = 'task-timer task-timer--editing';
-        timerEl.appendChild(input);
+        const hint = document.createElement('div');
+        hint.classList.add('task-timer-popup-hint');
+        hint.textContent = 'press return to accept or escape to cancel';
+
+        popup.appendChild(input);
+        popup.appendChild(hint);
+
+        // Position the popup near the timer element
+        const rect = timerEl.getBoundingClientRect();
+        popup.style.position = 'fixed';
+        popup.style.left = `${rect.left}px`;
+        popup.style.top = `${rect.bottom + 4}px`;
+        popup.style.zIndex = '9999';
+        document.body.appendChild(popup);
+
+        timerEl.style.visibility = 'hidden';
         input.focus();
         input.select();
 
         let committed = false;
 
+        function cleanup() {
+            timerEl.style.visibility = '';
+            if (popup.parentNode) {
+                popup.parentNode.removeChild(popup);
+            }
+        }
+
         function commit() {
             if (committed) return;
             committed = true;
+            const value = input.value;
             isEditing = false;
-            const parsed = parseTime(input.value);
+            // Dispatch the transaction BEFORE touching the DOM.  ProseMirror's
+            // view.dispatch() flushes its domObserver, so any pending DOM
+            // mutations (like restoring visibility) would be processed mid-
+            // dispatch and can invalidate getPos().
+            const parsed = parseTime(value);
             if (parsed !== null) {
                 dispatchAttrs({
                     timerSeconds: parsed,
                     timerRunning: false,
                     timerStartedAt: null,
                 });
-            } else {
-                renderTimer();
             }
+            cleanup();
+            renderTimer();
         }
 
         function cancel() {
             if (committed) return;
             committed = true;
             isEditing = false;
+            cleanup();
             renderTimer();
         }
 
@@ -273,12 +305,23 @@ export function taskListItemView(
     // Prevent editor focus loss on clicks
     timerEl.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        e.stopPropagation();
     });
 
-    // Single-click with double-click protection
+    // Single-click toggles play/pause; double-click edits time (paused only)
     timerEl.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!view.editable || isEditing) return;
+
+        if (e.detail >= 2 && !node.attrs.timerRunning) {
+            if (clickTimeout) {
+                clearTimeout(clickTimeout);
+                clickTimeout = null;
+            }
+            handleEdit();
+            return;
+        }
 
         if (clickTimeout) {
             clearTimeout(clickTimeout);
@@ -292,16 +335,9 @@ export function taskListItemView(
         }, 250);
     });
 
-    // Double-click opens freeform time editor
+    // Stop dblclick from bubbling to ProseMirror's word-selection handler
     timerEl.addEventListener('dblclick', (e) => {
-        e.preventDefault();
         e.stopPropagation();
-        if (!view.editable) return;
-        if (clickTimeout) {
-            clearTimeout(clickTimeout);
-            clickTimeout = null;
-        }
-        handleEdit();
     });
 
     dom.appendChild(timerEl);
@@ -358,6 +394,11 @@ export function taskListItemView(
         stopEvent(event: Event) {
             const target = event.target as HTMLElement;
             return timerEl.contains(target) || checkboxWrapper.contains(target);
+        },
+        ignoreMutation(mutation: ViewMutationRecord) {
+            // Prevent ProseMirror's DOM observer from reacting to our
+            // manual DOM changes in the timer and checkbox elements.
+            return timerEl.contains(mutation.target) || checkboxWrapper.contains(mutation.target);
         },
         update(updatedNode: Node) {
             if (updatedNode.type !== view.state.schema.nodes.task_list_item) {
