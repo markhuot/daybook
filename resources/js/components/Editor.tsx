@@ -5,6 +5,7 @@ import { DOMSerializer, Node } from 'prosemirror-model';
 import { schema } from './editor/schema';
 import { buildPlugins } from './editor/plugins';
 import { taskListItemView } from './editor/task-list-item-view';
+import { linkExpandKey } from './editor/link-plugin';
 
 interface EditorProps {
     content?: Record<string, unknown> | null;
@@ -113,6 +114,13 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
                     if (showPlaceholderRef.current) {
                         setShowPlaceholder(false);
                     }
+
+                    // Suppress saves while a link is being edited in
+                    // expanded form — the document is in a temporary
+                    // state and will be collapsed back before saving.
+                    const linkState = linkExpandKey.getState(newState);
+                    if (linkState?.expanded) return;
+
                     if (onUpdateRef.current) {
                         onUpdateRef.current(newState.doc.toJSON());
                     }

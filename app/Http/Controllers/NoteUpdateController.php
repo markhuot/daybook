@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\GenerateWeeklySummary;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,8 @@ class NoteUpdateController extends Controller
             $content = null;
         }
 
-        $note = $request->user()->notes()->where('date', $today)->first();
+        $user = $request->user();
+        $note = $user->notes()->where('date', $today)->first();
 
         if ($content === null) {
             // Nothing to store — delete the row if it exists
@@ -34,12 +36,18 @@ class NoteUpdateController extends Controller
             if ($note) {
                 $note->update(['content' => $content]);
             } else {
-                $request->user()->notes()->create([
+                $user->notes()->create([
                     'date' => $today,
                     'content' => $content,
                 ]);
             }
         }
+
+        // Persist timezone for background jobs
+        $user->update(['timezone' => $timezone]);
+
+        // Dispatch summary generation (debounced via ShouldBeUnique + uniqueFor on the job)
+        GenerateWeeklySummary::dispatch($user);
 
         return back();
     }

@@ -16,6 +16,7 @@ interface Props {
     note: Note;
     notes: Record<string, NoteEntry>;
     previousContent?: Record<string, unknown> | null;
+    weeklySummary?: string | null;
 }
 
 function formatWeekday(date: Date): string {
@@ -53,7 +54,7 @@ function getCsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-export default function Home({ note, notes: serverNotes, previousContent }: Props) {
+export default function Home({ note, notes: serverNotes, previousContent, weeklySummary }: Props) {
     const localToday = useMemo(() => toDateString(new Date()), []);
 
     // The date currently displayed. Starts from the server-provided note date.
@@ -207,9 +208,9 @@ export default function Home({ note, notes: serverNotes, previousContent }: Prop
     }, [localToday, flushSave]);
 
     return (
-        <div className="mx-auto flex min-h-screen max-w-2xl flex-col py-12" style={{ fontSize: '18px', lineHeight: '1.75' }}>
-            <p className="px-4 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
-            <div className="mb-8 flex items-center gap-3 px-4">
+        <div className="mx-auto flex min-h-screen max-w-4xl flex-col py-12" style={{ fontSize: '18px', lineHeight: '1.75' }}>
+            <p className="px-4 pl-16 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
+            <div className="mb-8 flex items-center gap-3 px-4 pl-16">
                 <a
                     href={`/${prevDate}`}
                     onClick={(e) => { e.preventDefault(); navigateTo(prevDate); }}
@@ -247,6 +248,17 @@ export default function Home({ note, notes: serverNotes, previousContent }: Prop
                 editable={isToday}
             />
             <FloatingMenu />
+            {weeklySummary && isToday && (
+                <aside className="mt-12 flex flex-col items-center gap-8 pb-9">
+                    <div className="max-w-md rotate-1 bg-gray-100 px-6 py-5 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.4)]">
+                        <h2 className="mb-2 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
+                        <div
+                            className="prose prose-sm prose-gray dark:prose-invert [&_h2]:text-sm [&_h2]:font-medium"
+                            dangerouslySetInnerHTML={{ __html: weeklySummary }}
+                        />
+                    </div>
+                </aside>
+            )}
         </div>
     );
 }

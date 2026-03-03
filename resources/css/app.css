@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -24,7 +25,7 @@
 .ProseMirror {
     outline: none;
     flex: 1;
-    padding-left: 1rem;
+    padding-left: 4rem;
     padding-right: 1rem;
     padding-bottom: 5rem;
     font-size: inherit;
@@ -39,8 +40,13 @@
 .ProseMirror h1 {
     font-size: 1.4em;
     font-weight: 700;
-    margin-bottom: 0.5em;
+    margin-top: 1.5em;
+    margin-bottom: 0.25em;
     position: relative;
+}
+
+.ProseMirror > h1:first-child {
+    margin-top: 0;
 }
 
 .ProseMirror h1::before {
@@ -91,6 +97,7 @@
     display: flex;
     align-items: baseline;
     gap: 0.75em;
+    position: relative;
 }
 
 .ProseMirror .task-checkbox {
@@ -139,6 +146,59 @@
     text-decoration: line-through;
 }
 
+/* Task timer gutter */
+.ProseMirror .task-timer {
+    position: absolute;
+    right: 100%;
+    top: 3px;
+    margin-right: 0.75em;
+    white-space: nowrap;
+    color: #9ca3af;
+    cursor: pointer;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+    line-height: inherit;
+    font-size: 0.75em;
+}
+
+.ProseMirror .task-timer:hover {
+    color: #6b7280;
+}
+
+.ProseMirror .task-timer--running {
+    color: #6b7280;
+}
+
+.ProseMirror .task-timer--running:hover {
+    color: #374151;
+}
+
+.ProseMirror .task-timer-input {
+    width: 5.5em;
+    font-size: inherit;
+    font-family: inherit;
+    text-align: right;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    padding: 0 0.25em;
+    outline: none;
+    background: white;
+    color: #374151;
+}
+
+.ProseMirror .task-timer-icon {
+    display: inline-block;
+    width: 0.6em;
+    height: 0.75em;
+    vertical-align: -0.05em;
+    margin-left: 0.5em;
+}
+
+/* Hide idle play button on read-only editors */
+.ProseMirror[contenteditable='false'] .task-timer--idle {
+    visibility: hidden;
+}
+
 .ProseMirror ul ul,
 .ProseMirror ul ol,
 .ProseMirror ol ul,
@@ -168,6 +228,28 @@
     .ProseMirror .task-list-item[data-checked='true'] .task-list-item-content {
         color: #6b7280;
     }
+
+    .ProseMirror .task-timer {
+        color: #6b7280;
+    }
+
+    .ProseMirror .task-timer:hover {
+        color: #9ca3af;
+    }
+
+    .ProseMirror .task-timer--running {
+        color: #9ca3af;
+    }
+
+    .ProseMirror .task-timer--running:hover {
+        color: #d1d5db;
+    }
+
+    .ProseMirror .task-timer-input {
+        border-color: #4b5563;
+        background: #1f2937;
+        color: #e5e7eb;
+    }
 }
 
 /* Placeholder ghost — previous day's content shown as greyed-out hint */
@@ -178,5 +260,41 @@
 @media (prefers-color-scheme: dark) {
     .ProseMirror.placeholder-ghost {
         color: #4b5563;
+    }
+}
+
+/* Link styles */
+.ProseMirror a {
+    color: var(--color-highlight);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-highlight) 25%, transparent);
+    text-underline-offset: 2px;
+    cursor: text;
+}
+
+.ProseMirror a:hover {
+    text-decoration-color: var(--color-highlight);
+}
+
+/* Expanded link syntax decorations — dim the brackets/parens, style the URL */
+.ProseMirror .link-syntax {
+    color: #9ca3af;
+}
+
+.ProseMirror .link-url {
+    color: #6b7280;
+    text-decoration: underline;
+    text-decoration-color: #6b728040;
+    text-underline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ProseMirror .link-syntax {
+        color: #6b7280;
+    }
+
+    .ProseMirror .link-url {
+        color: #9ca3af;
+        text-decoration-color: #9ca3af40;
     }
 }

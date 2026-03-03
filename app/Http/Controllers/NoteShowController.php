@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -74,6 +75,17 @@ class NoteShowController extends Controller
 
             if ($previousNote) {
                 $props['previousContent'] = $previousNote->content;
+            }
+        }
+
+        // Include summaries only for today's view, and only if fresh
+        $isToday = $date === $today;
+        $user = $request->user();
+        $ttl = config('summaries.ttl_seconds', 86400);
+
+        if ($isToday) {
+            if ($user->weekly_summary_at && $user->weekly_summary_at->diffInSeconds(now()) < $ttl) {
+                $props['weeklySummary'] = Str::markdown($user->weekly_summary);
             }
         }
 

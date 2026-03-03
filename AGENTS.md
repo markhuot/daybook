@@ -62,6 +62,10 @@ Editor styles live in `resources/css/app.css` targeting `.ProseMirror` classes.
 - `php artisan make:model ModelName -m` — Create model with migration
 - `php artisan make:controller ControllerName` — Create controller
 
+## Working Directory
+
+Always work within the project root (`/Users/markhuot/Sites/daybook`). Do not create files or directories outside of this folder. If you need a temporary directory for scratch work, use `.tmp/` in the project root. This directory is gitignored and can be freely created, written to, and deleted.
+
 ## Code Conventions
 
 - PHP follows PSR-12 via Laravel Pint (`./vendor/bin/pint`)

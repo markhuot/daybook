@@ -79,34 +79,59 @@ export const schema = new Schema({
         },
         task_list_item: {
             content: 'paragraph block*',
-            attrs: { checked: { default: false } },
+            attrs: {
+                checked: { default: false },
+                timerSeconds: { default: 0 },
+                timerRunning: { default: false },
+                timerStartedAt: { default: null },
+            },
             defining: true,
             parseDOM: [
                 {
                     tag: 'li[data-type="taskItem"]',
                     getAttrs(dom) {
+                        const el = dom as HTMLElement;
                         return {
-                            checked:
-                                (dom as HTMLElement).getAttribute(
-                                    'data-checked',
-                                ) === 'true',
+                            checked: el.getAttribute('data-checked') === 'true',
+                            timerSeconds:
+                                parseInt(el.getAttribute('data-timer-seconds') || '0', 10) || 0,
                         };
                     },
                 },
             ],
             toDOM(node) {
-                return [
-                    'li',
-                    {
-                        'data-type': 'taskItem',
-                        'data-checked': node.attrs.checked ? 'true' : 'false',
-                    },
-                    0,
-                ];
+                const attrs: Record<string, string> = {
+                    'data-type': 'taskItem',
+                    'data-checked': node.attrs.checked ? 'true' : 'false',
+                };
+                if (node.attrs.timerSeconds) {
+                    attrs['data-timer-seconds'] = String(node.attrs.timerSeconds);
+                }
+                return ['li', attrs, 0];
             },
         },
     },
     marks: {
+        link: {
+            attrs: {
+                href: {},
+                auto: { default: false },
+            },
+            inclusive: false,
+            parseDOM: [
+                {
+                    tag: 'a[href]',
+                    getAttrs(dom) {
+                        const href = (dom as HTMLElement).getAttribute('href');
+                        const text = (dom as HTMLElement).textContent;
+                        return { href, auto: text === href };
+                    },
+                },
+            ],
+            toDOM(mark) {
+                return ['a', { href: mark.attrs.href }, 0];
+            },
+        },
         bold: {
             parseDOM: [
                 { tag: 'strong' },

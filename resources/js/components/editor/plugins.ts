@@ -16,6 +16,11 @@ import {
 } from 'prosemirror-inputrules';
 import { Fragment, MarkType, Node, NodeType } from 'prosemirror-model';
 import { schema } from './schema';
+import {
+    linkExpandPlugin,
+    urlInputRule,
+    markdownLinkInputRule,
+} from './link-plugin';
 
 /**
  * Markdown-style input rules:
@@ -154,6 +159,12 @@ function buildInputRules(): Plugin {
 
             // [] or [ ] or [x] followed by space inside a list item -> task list
             taskListInputRule(),
+
+            // [text](url) -> markdown link
+            markdownLinkInputRule(),
+
+            // https://... followed by space -> bare URL link
+            urlInputRule(),
         ],
     });
 }
@@ -219,12 +230,61 @@ function buildKeymap(): Plugin {
                     if (dispatch) {
                         const pos = $from.before(d);
                         const node = $from.node(d);
+                        const newChecked = !node.attrs.checked;
+                        const attrs: Record<string, unknown> = {
+                            ...node.attrs,
+                            checked: newChecked,
+                        };
+                        // Auto-pause timer when checking off
+                        if (newChecked && node.attrs.timerRunning) {
+                            let elapsed = node.attrs.timerSeconds || 0;
+                            if (node.attrs.timerStartedAt) {
+                                elapsed += (Date.now() - node.attrs.timerStartedAt) / 1000;
+                            }
+                            attrs.timerSeconds = Math.max(0, Math.floor(elapsed));
+                            attrs.timerRunning = false;
+                            attrs.timerStartedAt = null;
+                        }
                         dispatch(
-                            state.tr.setNodeMarkup(pos, null, {
-                                ...node.attrs,
-                                checked: !node.attrs.checked,
-                            }),
+                            state.tr.setNodeMarkup(pos, null, attrs),
                         );
+                    }
+                    return true;
+                }
+            }
+            return false;
+        },
+        'Mod-Shift-.': (state, dispatch) => {
+            const { $from } = state.selection;
+            for (let d = $from.depth; d >= 0; d--) {
+                if ($from.node(d).type === taskListItem) {
+                    if (dispatch) {
+                        const pos = $from.before(d);
+                        const node = $from.node(d);
+                        if (node.attrs.timerRunning) {
+                            // Pause
+                            let elapsed = node.attrs.timerSeconds || 0;
+                            if (node.attrs.timerStartedAt) {
+                                elapsed += (Date.now() - node.attrs.timerStartedAt) / 1000;
+                            }
+                            dispatch(
+                                state.tr.setNodeMarkup(pos, null, {
+                                    ...node.attrs,
+                                    timerSeconds: Math.max(0, Math.floor(elapsed)),
+                                    timerRunning: false,
+                                    timerStartedAt: null,
+                                }),
+                            );
+                        } else {
+                            // Start / resume
+                            dispatch(
+                                state.tr.setNodeMarkup(pos, null, {
+                                    ...node.attrs,
+                                    timerRunning: true,
+                                    timerStartedAt: Date.now(),
+                                }),
+                            );
+                        }
                     }
                     return true;
                 }
@@ -251,5 +311,6 @@ export function buildPlugins(): Plugin[] {
         history(),
         buildKeymap(),
         keymap(baseKeymap),
+        linkExpandPlugin(),
     ];
 }

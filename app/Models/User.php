@@ -22,6 +22,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'timezone',
+        'weekly_summary',
+        'weekly_summary_at',
+        'monthly_summary',
+        'monthly_summary_at',
     ];
 
     /**
@@ -44,6 +49,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'weekly_summary_at' => 'datetime',
+            'monthly_summary_at' => 'datetime',
         ];
     }
 

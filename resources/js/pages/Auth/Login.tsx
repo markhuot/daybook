@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
+import FeaturePills from '@/components/FeaturePills';
 
 export default function Login() {
     const { data, setData, post, processing, errors } = useForm({
@@ -15,9 +16,10 @@ export default function Login() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-white px-4 dark:bg-[#181618]">
-            <div
-                className="relative w-full max-w-sm rotate-2 bg-gray-100 px-8 pb-8 pt-10 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.5)]"
-            >
+            <div className="flex w-full max-w-sm flex-col items-center">
+                <div
+                    className="relative z-10 w-full rotate-2 bg-gray-100 px-8 pb-8 pt-10 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.5)]"
+                >
                 {/* Tape strip */}
                 <div className="absolute -top-3 left-1/2 h-6 w-16 -translate-x-1/2 rotate-[-2deg] bg-highlight/80" />
 
@@ -109,6 +111,11 @@ export default function Login() {
                         Register
                     </a>
                 </p>
+                </div>
+
+                <div className="relative z-0 -mt-4 w-full px-2">
+                    <FeaturePills />
+                </div>
             </div>
         </div>
     );
