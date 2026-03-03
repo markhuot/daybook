@@ -117,6 +117,7 @@ export function taskListItemView(
 
     let tickInterval: ReturnType<typeof setInterval> | null = null;
     let clickTimeout: ReturnType<typeof setTimeout> | null = null;
+    let longPressTimeout: ReturnType<typeof setTimeout> | null = null;
     let isEditing = false;
     let timeTextNode: Text | null = null;
 
@@ -340,6 +341,41 @@ export function taskListItemView(
         e.stopPropagation();
     });
 
+    // Long-press on touch devices opens the time editor (mobile equivalent
+    // of double-click, since double-tap triggers zoom on iOS).
+    let longPressTriggered = false;
+
+    timerEl.addEventListener('touchstart', (e) => {
+        longPressTriggered = false;
+        if (!view.editable || isEditing || node.attrs.timerRunning) return;
+        longPressTimeout = setTimeout(() => {
+            longPressTimeout = null;
+            longPressTriggered = true;
+            handleEdit();
+        }, 500);
+    }, { passive: true });
+
+    timerEl.addEventListener('touchmove', () => {
+        // Cancel long press if the finger moves (scrolling)
+        if (longPressTimeout) {
+            clearTimeout(longPressTimeout);
+            longPressTimeout = null;
+        }
+    }, { passive: true });
+
+    timerEl.addEventListener('touchend', (e) => {
+        if (longPressTimeout) {
+            clearTimeout(longPressTimeout);
+            longPressTimeout = null;
+        }
+        // If the long press triggered the editor, suppress the tap so it
+        // doesn't also toggle play/pause via the click handler.
+        if (longPressTriggered) {
+            e.preventDefault();
+            longPressTriggered = false;
+        }
+    });
+
     dom.appendChild(timerEl);
 
     // ── Checkbox ───────────────────────────────────────────────────
@@ -424,6 +460,9 @@ export function taskListItemView(
             stopTick();
             if (clickTimeout) {
                 clearTimeout(clickTimeout);
+            }
+            if (longPressTimeout) {
+                clearTimeout(longPressTimeout);
             }
         },
     };
