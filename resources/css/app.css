@@ -1,0 +1,182 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.tsx';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-highlight: #ef4444;
+}
+
+/* Dark mode font smoothing — light-on-dark text appears heavier due to halation */
+@media (prefers-color-scheme: dark) {
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* ProseMirror editor styles */
+.ProseMirror {
+    outline: none;
+    flex: 1;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 5rem;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+
+.ProseMirror p {
+    margin-bottom: 0.5em;
+}
+
+.ProseMirror h1 {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin-bottom: 0.5em;
+    position: relative;
+}
+
+.ProseMirror h1::before {
+    content: '#';
+    position: absolute;
+    right: 100%;
+    margin-right: 0.35em;
+    color: var(--color-highlight);
+    font-weight: 400;
+}
+
+.ProseMirror strong {
+    font-weight: 700;
+}
+
+.ProseMirror em {
+    font-style: italic;
+}
+
+.ProseMirror ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+.ProseMirror ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+.ProseMirror li {
+    margin-bottom: 0;
+}
+
+.ProseMirror li p {
+    margin-bottom: 0;
+}
+
+/* Task list styles */
+.ProseMirror ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0;
+    margin-left: -0.25em;
+}
+
+.ProseMirror .task-list-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75em;
+}
+
+.ProseMirror .task-checkbox {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    user-select: none;
+    cursor: pointer;
+}
+
+.ProseMirror .task-checkbox-display {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    position: relative;
+    top: 2px;
+    flex-shrink: 0;
+}
+
+.ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {
+    background-color: #000;
+    border-color: #000;
+}
+
+.ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    width: 7px;
+    height: 11px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.ProseMirror .task-list-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.ProseMirror .task-list-item[data-checked='true'] .task-list-item-content {
+    color: #9ca3af;
+    text-decoration: line-through;
+}
+
+.ProseMirror ul ul,
+.ProseMirror ul ol,
+.ProseMirror ol ul,
+.ProseMirror ol ol {
+    margin-bottom: 0;
+}
+
+/* ProseMirror caret color for dark mode */
+@media (prefers-color-scheme: dark) {
+    .ProseMirror {
+        caret-color: #f3f4f6;
+    }
+
+    .ProseMirror .task-checkbox-display {
+        border-color: #4b5563;
+    }
+
+    .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {
+        background-color: #fff;
+        border-color: #fff;
+    }
+
+    .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display::after {
+        border-color: #000;
+    }
+
+    .ProseMirror .task-list-item[data-checked='true'] .task-list-item-content {
+        color: #6b7280;
+    }
+}
+
+/* Placeholder ghost — previous day's content shown as greyed-out hint */
+.ProseMirror.placeholder-ghost {
+    color: #d1d5db;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ProseMirror.placeholder-ghost {
+        color: #4b5563;
+    }
+}
