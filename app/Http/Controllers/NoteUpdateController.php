@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Data\NoteUpdateData;
 use App\Jobs\GenerateWeeklySummary;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -9,16 +10,12 @@ use Illuminate\Http\Request;
 
 class NoteUpdateController extends Controller
 {
-    public function __invoke(Request $request): RedirectResponse
+    public function __invoke(NoteUpdateData $data, Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'content' => ['nullable', 'array'],
-        ]);
-
         $timezone = $request->cookie('timezone', 'UTC');
         $today = Carbon::now($timezone)->toDateString();
 
-        $content = $validated['content'];
+        $content = $data->content;
 
         // Treat empty documents (no real text) the same as null
         if ($content !== null && $this->isDocEmpty($content)) {

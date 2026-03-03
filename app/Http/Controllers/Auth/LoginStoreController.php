@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Data\LoginData;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -10,14 +11,14 @@ use Illuminate\Support\Facades\Auth;
 
 class LoginStoreController extends Controller
 {
-    public function __invoke(Request $request): RedirectResponse|JsonResponse
+    public function __invoke(LoginData $data, Request $request): RedirectResponse|JsonResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
+        $credentials = [
+            'email' => $data->email,
+            'password' => $data->password,
+        ];
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (Auth::attempt($credentials, $data->remember)) {
             $request->session()->regenerate();
 
             if ($request->wantsJson()) {
