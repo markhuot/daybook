@@ -60,6 +60,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
 
     // The date currently displayed. Starts from the server-provided note date.
     const [displayedDate, setDisplayedDate] = useState(note.date);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
 
     // Cache ref: stores { id, content } keyed by date string.
     // undefined = unknown (fetch from server), { id: null, content: null } = known empty.
@@ -252,12 +253,20 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             <SessionExpiredOverlay />
             {weeklySummary && isToday && (
                 <aside className="mt-12 flex flex-col items-center gap-8 pb-9">
-                    <div className="max-w-md rotate-1 bg-gray-100 px-6 py-5 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.4)]">
+                    <div
+                        className="max-w-md rotate-1 bg-gray-100 px-6 py-5 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.4)] cursor-pointer"
+                        onClick={() => setSummaryExpanded(prev => !prev)}
+                    >
                         <h2 className="mb-2 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
-                        <div
-                            className="prose prose-sm prose-gray dark:prose-invert [&_h2]:text-sm [&_h2]:font-medium"
-                            dangerouslySetInnerHTML={{ __html: weeklySummary }}
-                        />
+                        <div className={`relative ${summaryExpanded ? '' : 'max-h-24 overflow-hidden'}`}>
+                            <div
+                                className="prose prose-sm prose-gray dark:prose-invert [&_h2]:text-sm [&_h2]:font-medium"
+                                dangerouslySetInnerHTML={{ __html: weeklySummary }}
+                            />
+                            {!summaryExpanded && (
+                                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-gray-100 to-transparent dark:from-[#131113]" />
+                            )}
+                        </div>
                     </div>
                 </aside>
             )}
