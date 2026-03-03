@@ -59,7 +59,7 @@ function wrappingListInputRule(pattern: RegExp, nodeType: NodeType, getAttrs?: (
  * task_list, converting all children to task_list_items.
  */
 function taskListInputRule(): InputRule {
-    return new InputRule(/^\[([ x])?\]\s$/, (state, match, start, _end) => {
+    return new InputRule(/^\[([ x])?\]\s$/, (state, match, start, end) => {
         const checked = match[1] === 'x';
         const $pos = state.doc.resolve(start);
 
@@ -85,7 +85,13 @@ function taskListInputRule(): InputRule {
         }
 
         const currentIndex = $pos.index(listDepth);
-        const matchLength = match[0].length;
+        // Use the actual document range (end - start) rather than
+        // match[0].length because the trailing character that triggered
+        // the input rule (the space) has not been inserted into the
+        // document yet. match[0].length includes that character, which
+        // would cause us to strip one extra character from the existing
+        // paragraph content.
+        const matchLength = end - start;
 
         // Build replacement task_list with task_list_items
         const items: Node[] = [];
@@ -147,8 +153,11 @@ function buildInputRules(): Plugin {
             // # at start of line -> heading
             textblockTypeInputRule(/^#\s$/, schema.nodes.heading),
 
-            // - or * at start of line -> bullet list
-            wrappingListInputRule(/^\s*[-*]\s$/, schema.nodes.bullet_list),
+            // - at start of line -> dash-style bullet list
+            wrappingListInputRule(/^\s*-\s$/, schema.nodes.bullet_list, () => ({ listStyle: 'dash' })),
+
+            // * at start of line -> disc-style bullet list
+            wrappingListInputRule(/^\s*\*\s$/, schema.nodes.bullet_list, () => ({ listStyle: 'bullet' })),
 
             // 1. at start of line -> ordered list
             wrappingListInputRule(

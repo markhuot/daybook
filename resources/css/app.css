@@ -25,8 +25,8 @@
 .ProseMirror {
     outline: none;
     flex: 1;
-    padding-left: 4rem;
-    padding-right: 1rem;
+    padding-left: 5rem;
+    padding-right: 2rem;
     padding-bottom: 5rem;
     font-size: inherit;
     line-height: inherit;
@@ -68,18 +68,26 @@
 
 .ProseMirror ul {
     list-style-type: disc;
-    padding-left: 1.5em;
+    padding-left: 0;
     margin-bottom: 0.5em;
+}
+
+.ProseMirror ul[data-list-style='dash'] {
+    list-style-type: '-  ';
 }
 
 .ProseMirror ol {
     list-style-type: decimal;
-    padding-left: 1.5em;
+    padding-left: 0;
     margin-bottom: 0.5em;
 }
 
 .ProseMirror li {
     margin-bottom: 0;
+}
+
+.ProseMirror li::marker {
+    color: #d1d5db;
 }
 
 .ProseMirror li p {
@@ -90,13 +98,11 @@
 .ProseMirror ul[data-type='taskList'] {
     list-style: none;
     padding-left: 0;
-    margin-left: -0.25em;
 }
 
 .ProseMirror .task-list-item {
     display: flex;
     align-items: baseline;
-    gap: 0.75em;
     position: relative;
 }
 
@@ -106,6 +112,10 @@
     align-items: center;
     user-select: none;
     cursor: pointer;
+    position: absolute;
+    right: 100%;
+    top: 0.4rem;
+    margin-right: 0.5em;
 }
 
 .ProseMirror .task-checkbox-display {
@@ -114,8 +124,6 @@
     height: 1em;
     border: 2px solid #d1d5db;
     border-radius: 50%;
-    position: relative;
-    top: 2px;
     flex-shrink: 0;
 }
 
@@ -151,7 +159,7 @@
     position: absolute;
     right: 100%;
     top: 3px;
-    margin-right: 0.75em;
+    margin-right: calc(2.25em + 4px);
     white-space: nowrap;
     color: #9ca3af;
     cursor: pointer;
@@ -204,6 +212,7 @@
 .ProseMirror ol ul,
 .ProseMirror ol ol {
     margin-bottom: 0;
+    padding-left: 1.5em;
 }
 
 /* ProseMirror caret color for dark mode */
@@ -214,6 +223,10 @@
 
     .ProseMirror .task-checkbox-display {
         border-color: #4b5563;
+    }
+
+    .ProseMirror li::marker {
+        color: #4b5563;
     }
 
     .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {

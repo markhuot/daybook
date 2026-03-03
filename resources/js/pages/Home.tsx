@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import Editor from '@/components/Editor';
 import FloatingMenu from '@/components/FloatingMenu';
+import SessionExpiredOverlay from '@/components/SessionExpiredOverlay';
 
 interface NoteEntry {
     id: number | null;
@@ -209,8 +210,8 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
 
     return (
         <div className="mx-auto flex min-h-screen max-w-4xl flex-col py-12" style={{ fontSize: '18px', lineHeight: '1.75' }}>
-            <p className="px-4 pl-16 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
-            <div className="mb-8 flex items-center gap-3 px-4 pl-16">
+            <p className="px-4 pl-20 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
+            <div className="mb-8 flex items-center gap-3 px-4 pl-20">
                 <a
                     href={`/${prevDate}`}
                     onClick={(e) => { e.preventDefault(); navigateTo(prevDate); }}
@@ -248,6 +249,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                 editable={isToday}
             />
             <FloatingMenu />
+            <SessionExpiredOverlay />
             {weeklySummary && isToday && (
                 <aside className="mt-12 flex flex-col items-center gap-8 pb-9">
                     <div className="max-w-md rotate-1 bg-gray-100 px-6 py-5 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.4)]">

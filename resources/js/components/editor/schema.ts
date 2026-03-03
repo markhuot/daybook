@@ -34,9 +34,24 @@ export const schema = new Schema({
         bullet_list: {
             content: 'list_item+',
             group: 'block',
-            parseDOM: [{ tag: 'ul' }],
-            toDOM() {
-                return ['ul', 0];
+            attrs: { listStyle: { default: 'bullet' } },
+            parseDOM: [
+                {
+                    tag: 'ul:not([data-type])',
+                    getAttrs(dom) {
+                        return {
+                            listStyle:
+                                (dom as HTMLElement).getAttribute('data-list-style') || 'bullet',
+                        };
+                    },
+                },
+            ],
+            toDOM(node) {
+                const attrs: Record<string, string> = {};
+                if (node.attrs.listStyle === 'dash') {
+                    attrs['data-list-style'] = 'dash';
+                }
+                return ['ul', attrs, 0];
             },
         },
         ordered_list: {

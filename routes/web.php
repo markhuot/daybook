@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\AuthCheckController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LoginStoreController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -8,6 +9,8 @@ use App\Http\Controllers\Auth\RegisterStoreController;
 use App\Http\Controllers\NoteShowController;
 use App\Http\Controllers\NoteUpdateController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/auth/check', AuthCheckController::class);
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', LoginController::class)->name('login');
