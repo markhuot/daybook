@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Data\NoteUpdateData;
+use App\Jobs\GenerateNoteEmbeddings;
 use App\Jobs\GenerateWeeklySummary;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -45,6 +46,9 @@ class NoteUpdateController extends Controller
 
         // Dispatch summary generation (debounced via ShouldBeUnique + uniqueFor on the job)
         GenerateWeeklySummary::dispatch($user);
+
+        // Dispatch embedding generation (debounced the same way)
+        GenerateNoteEmbeddings::dispatch($user);
 
         return back();
     }

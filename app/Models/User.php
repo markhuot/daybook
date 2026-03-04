@@ -14,22 +14,6 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'timezone',
-        'weekly_summary',
-        'weekly_summary_at',
-        'monthly_summary',
-        'monthly_summary_at',
-    ];
-
-    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
@@ -51,6 +35,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'weekly_summary_at' => 'datetime',
             'monthly_summary_at' => 'datetime',
+            'todays_note_placeholder_created_from' => 'date',
         ];
     }
 

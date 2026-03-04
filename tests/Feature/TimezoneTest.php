@@ -127,18 +127,17 @@ it('anchors the notes window to the timezone-adjusted today', function () {
     );
 });
 
-it('offers previous content based on timezone-adjusted today', function () {
+it('offers static placeholder based on timezone-adjusted today', function () {
     // Server clock: 2026-03-03 03:00 UTC
     // In LA, today is March 2nd — and March 2nd has no note
     $this->travelTo(Carbon::create(2026, 3, 3, 3, 0, 0, 'UTC'));
 
     $user = User::factory()->create();
-    $previousContent = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'march 1st entry']]]]];
 
     Note::factory()->create([
         'user_id' => $user->id,
         'date' => '2026-03-01',
-        'content' => $previousContent,
+        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'march 1st entry']]]]],
     ]);
 
     $response = $this->actingAs($user)
@@ -148,7 +147,10 @@ it('offers previous content based on timezone-adjusted today', function () {
     $response->assertInertia(fn (AssertableInertia $page) => $page
         ->where('note.date', '2026-03-02')
         ->where('note.content', null)
-        ->where('previousContent', $previousContent)
+        ->where('previousContent', [
+            'type' => 'doc',
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => "What's on your plate today?"]]]],
+        ])
     );
 });
 

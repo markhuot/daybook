@@ -164,7 +164,7 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
                             onClick={handleAccept}
                             className="rounded-full border border-purple-200 bg-gradient-to-r from-purple-500/90 via-indigo-500/90 to-blue-500/90 px-5 py-1.5 text-sm font-medium text-white shadow-[0_3px_12px_2px_rgba(168,85,247,0.25)] backdrop-blur-sm transition-all hover:shadow-[0_8px_18px_4px_rgba(168,85,247,0.4)] hover:brightness-110 dark:border-purple-700 dark:shadow-[0_3px_12px_2px_rgba(168,85,247,0.2)] dark:hover:shadow-[0_8px_18px_4px_rgba(168,85,247,0.35)]"
                         >
-                            Continue where you left off <span className="ml-1 opacity-50">Space</span>
+                            Start with a suggestion <span className="ml-1 opacity-50">Space</span>
                         </button>
                     </div>
                 </>

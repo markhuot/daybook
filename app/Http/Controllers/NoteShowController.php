@@ -65,16 +65,28 @@ class NoteShowController extends Controller
             'notes' => $notes,
         ];
 
-        // If today's note has no content, offer the most recent note with content as a starting point
+        // If today's note has no content, offer a starting point.
+        // Show the AI-generated placeholder only if it was created from the most
+        // recent note (i.e., the AI has processed the latest entry). Otherwise
+        // fall back to a static "What's on your plate today?" prompt.
         if ($date === $today && ! $note?->content) {
-            $previousNote = $request->user()->notes()
+            $user = $request->user();
+
+            $mostRecentNoteDate = $user->notes()
                 ->where('date', '<', $date)
                 ->whereNotNull('content')
                 ->orderByDesc('date')
-                ->first();
+                ->value('date');
 
-            if ($previousNote) {
-                $props['previousContent'] = $previousNote->content;
+            if (
+                $user->todays_note_placeholder
+                && $user->todays_note_placeholder_created_from
+                && $mostRecentNoteDate
+                && $user->todays_note_placeholder_created_from->toDateString() === $mostRecentNoteDate
+            ) {
+                $props['previousContent'] = $this->textToProseMirror($user->todays_note_placeholder);
+            } else {
+                $props['previousContent'] = $this->textToProseMirror("What's on your plate today?");
             }
         }
 
@@ -90,5 +102,154 @@ class NoteShowController extends Controller
         }
 
         return Inertia::render('Home', $props);
+    }
+
+    /**
+     * Convert plain text into a ProseMirror JSON document.
+     *
+     * Each non-empty line becomes a paragraph node. Empty lines are preserved
+     * as empty paragraphs so the document structure feels natural.
+     *
+     * @return array<string, mixed>
+     */
+    protected function textToProseMirror(string $text): array
+    {
+        $lines = explode("\n", $text);
+        $content = [];
+        $taskItems = [];
+        $bulletItems = [];
+
+        $flushTaskList = function () use (&$content, &$taskItems) {
+            if (! empty($taskItems)) {
+                $content[] = ['type' => 'task_list', 'content' => $taskItems];
+                $taskItems = [];
+            }
+        };
+
+        $flushBulletList = function () use (&$content, &$bulletItems) {
+            if (! empty($bulletItems)) {
+                $content[] = ['type' => 'bullet_list', 'content' => $bulletItems];
+                $bulletItems = [];
+            }
+        };
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+
+            // Task list item: - [ ] or - [x]
+            if (preg_match('/^- \[([ xX])\] (.+)$/', $trimmed, $m)) {
+                $flushBulletList();
+                $checked = strtolower($m[1]) === 'x';
+                $taskItems[] = [
+                    'type' => 'task_list_item',
+                    'attrs' => ['checked' => $checked, 'timerSeconds' => 0, 'timerRunning' => false, 'timerStartedAt' => null],
+                    'content' => [
+                        ['type' => 'paragraph', 'content' => $this->parseInlineMarks($m[2])],
+                    ],
+                ];
+
+                continue;
+            }
+
+            $flushTaskList();
+
+            // Bullet list item: - text or * text
+            if (preg_match('/^[-*] (.+)$/', $trimmed, $m)) {
+                $bulletItems[] = [
+                    'type' => 'list_item',
+                    'content' => [
+                        ['type' => 'paragraph', 'content' => $this->parseInlineMarks($m[1])],
+                    ],
+                ];
+
+                continue;
+            }
+
+            $flushBulletList();
+
+            // Heading: # text
+            if (preg_match('/^# (.+)$/', $trimmed, $m)) {
+                $content[] = [
+                    'type' => 'heading',
+                    'content' => $this->parseInlineMarks($m[1]),
+                ];
+
+                continue;
+            }
+
+            // Empty line
+            if ($trimmed === '') {
+                $content[] = ['type' => 'paragraph'];
+
+                continue;
+            }
+
+            // Plain paragraph
+            $content[] = [
+                'type' => 'paragraph',
+                'content' => $this->parseInlineMarks($trimmed),
+            ];
+        }
+
+        $flushTaskList();
+        $flushBulletList();
+
+        if (empty($content)) {
+            $content[] = ['type' => 'paragraph'];
+        }
+
+        return [
+            'type' => 'doc',
+            'content' => $content,
+        ];
+    }
+
+    /**
+     * Parse inline markdown marks (bold, italic) into ProseMirror text nodes.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function parseInlineMarks(string $text): array
+    {
+        $nodes = [];
+        // Match **bold**, __bold__, *italic*, _italic_, or plain text
+        $pattern = '/(\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_)/';
+        $offset = 0;
+
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[0] as $i => $match) {
+                $matchText = $match[0];
+                $matchPos = $match[1];
+
+                // Add plain text before this match
+                if ($matchPos > $offset) {
+                    $nodes[] = ['type' => 'text', 'text' => substr($text, $offset, $matchPos - $offset)];
+                }
+
+                // Determine mark type and inner text
+                if ($matches[2][$i][1] !== -1) {
+                    // **bold**
+                    $nodes[] = ['type' => 'text', 'text' => $matches[2][$i][0], 'marks' => [['type' => 'bold']]];
+                } elseif ($matches[3][$i][1] !== -1) {
+                    // __bold__
+                    $nodes[] = ['type' => 'text', 'text' => $matches[3][$i][0], 'marks' => [['type' => 'bold']]];
+                } elseif ($matches[4][$i][1] !== -1) {
+                    // *italic*
+                    $nodes[] = ['type' => 'text', 'text' => $matches[4][$i][0], 'marks' => [['type' => 'italic']]];
+                } elseif ($matches[5][$i][1] !== -1) {
+                    // _italic_
+                    $nodes[] = ['type' => 'text', 'text' => $matches[5][$i][0], 'marks' => [['type' => 'italic']]];
+                }
+
+                $offset = $matchPos + strlen($matchText);
+            }
+        }
+
+        // Add remaining plain text
+        if ($offset < strlen($text)) {
+            $nodes[] = ['type' => 'text', 'text' => substr($text, $offset)];
+        }
+
+        return $nodes ?: [['type' => 'text', 'text' => $text]];
     }
 }

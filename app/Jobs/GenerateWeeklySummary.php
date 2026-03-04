@@ -57,7 +57,7 @@ class GenerateWeeklySummary implements ShouldBeUnique, ShouldQueue
 
         $notesText = $this->formatNotes($notes);
 
-        $response = (new WeeklySummaryAgent)->prompt($notesText);
+        $response = (new WeeklySummaryAgent)->prompt('<journal_entries>'.$notesText.'</journal_entries>');
 
         $this->user->update([
             'weekly_summary' => (string) $response,

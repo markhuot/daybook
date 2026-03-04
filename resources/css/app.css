@@ -123,15 +123,15 @@
     display: inline-block;
     width: 1em;
     height: 1em;
-    border: 2px solid #d1d5db;
+    border: 2px solid #d4d4d4;
     border-radius: 50%;
     flex-shrink: 0;
     background-color: white;
 }
 
 .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {
-    background-color: #000;
-    border-color: #000;
+    background-color: #a3a3a3;
+    border-color: #a3a3a3;
 }
 
 .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display::after {
@@ -139,8 +139,8 @@
     position: absolute;
     left: 50%;
     top: 45%;
-    width: 7px;
-    height: 11px;
+    width: 5px;
+    height: 9px;
     border: solid white;
     border-width: 0 2px 2px 0;
     transform: translate(-50%, -50%) rotate(45deg);
@@ -152,7 +152,7 @@
 }
 
 .ProseMirror .task-list-item[data-checked='true'] .task-list-item-content {
-    color: #9ca3af;
+    color: #a3a3a3;
     text-decoration: line-through;
 }
 
@@ -221,7 +221,7 @@
 
 .task-timer-popup-input {
     width: 8em;
-    font-size: 0.8125rem;
+    font-size: 1rem;
     font-family: inherit;
     font-variant-numeric: tabular-nums;
     border: 1px solid #d1d5db;
@@ -270,7 +270,7 @@
     }
 
     .ProseMirror .task-checkbox-display {
-        border-color: #4b5563;
+        border-color: #404040;
         background-color: #181618;
     }
 
@@ -279,24 +279,24 @@
     }
 
     .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {
-        background-color: #fff;
-        border-color: #fff;
+        background-color: #525252;
+        border-color: #525252;
     }
 
     .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display::after {
-        border-color: #000;
+        border-color: #181618;
     }
 
     .ProseMirror .task-list-item[data-checked='true'] .task-list-item-content {
-        color: #6b7280;
+        color: #525252;
     }
 
     .ProseMirror .task-timer {
-        color: #6b7280;
+        color: #4b5563;
     }
 
     .ProseMirror .task-timer:hover {
-        color: #9ca3af;
+        color: #6b7280;
     }
 
     .ProseMirror .task-timer--running,

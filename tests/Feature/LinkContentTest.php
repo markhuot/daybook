@@ -198,33 +198,35 @@ it('preserves multiple links in the same paragraph', function () {
 
 // --- Previous content with links ---
 
-it('provides previous content with links as placeholder', function () {
+it('provides static placeholder when previous note has links but no AI placeholder exists', function () {
     $user = User::factory()->create();
-    $previousContent = [
-        'type' => 'doc',
-        'content' => [[
-            'type' => 'paragraph',
-            'content' => [
-                ['type' => 'text', 'text' => 'See '],
-                [
-                    'type' => 'text',
-                    'text' => 'this link',
-                    'marks' => [['type' => 'link', 'attrs' => ['href' => 'https://example.com', 'auto' => false]]],
-                ],
-            ],
-        ]],
-    ];
 
     Note::factory()->create([
         'user_id' => $user->id,
         'date' => now()->subDay()->toDateString(),
-        'content' => $previousContent,
+        'content' => [
+            'type' => 'doc',
+            'content' => [[
+                'type' => 'paragraph',
+                'content' => [
+                    ['type' => 'text', 'text' => 'See '],
+                    [
+                        'type' => 'text',
+                        'text' => 'this link',
+                        'marks' => [['type' => 'link', 'attrs' => ['href' => 'https://example.com', 'auto' => false]]],
+                    ],
+                ],
+            ]],
+        ],
     ]);
 
     $response = $this->actingAs($user)->get('/');
 
     $response->assertInertia(fn (AssertableInertia $page) => $page
         ->where('note.content', null)
-        ->where('previousContent', $previousContent)
+        ->where('previousContent', [
+            'type' => 'doc',
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => "What's on your plate today?"]]]],
+        ])
     );
 });

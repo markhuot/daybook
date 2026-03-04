@@ -117,7 +117,8 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         return nextDate === toDateString(tomorrow);
     }, [nextDate]);
 
-    // Compute previousContent from cache when on today with no content
+    // Compute previousContent for today when it has no content.
+    // The server always provides a placeholder (AI-generated or static).
     const effectivePreviousContent = useMemo(() => {
         if (!isToday) return undefined;
 
@@ -125,17 +126,6 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         const currentEntry = notesCacheRef.current[displayedDate];
         if (currentEntry?.content) return undefined;
 
-        // Walk backwards through the cache to find most recent note with content
-        let cursor = addDays(displayedDate, -1);
-        const cache = notesCacheRef.current;
-        while (cache[cursor] !== undefined) {
-            if (cache[cursor].content) {
-                return cache[cursor].content;
-            }
-            cursor = addDays(cursor, -1);
-        }
-
-        // If we ran out of cache, fall back to server-provided previousContent
         return previousContent;
     }, [isToday, displayedDate, previousContent]);
 
@@ -242,6 +232,30 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                     </a>
                 )}
             </div>
+            {weeklySummary && isToday && (
+                <div
+                    className="mb-8 ml-[4.25rem] w-fit cursor-pointer border border-gray-900/10 p-4 dark:border-white/10"
+                    onClick={() => setSummaryExpanded(prev => !prev)}
+                >
+                    <div className="mb-2 flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-400 dark:text-gray-500">
+                            <circle cx="7" cy="7" r="6" />
+                            <line x1="7" y1="6" x2="7" y2="10" />
+                            <circle cx="7" cy="4.25" r="0.5" fill="currentColor" stroke="none" />
+                        </svg>
+                        <h2 className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
+                    </div>
+                    <div className={`relative ${summaryExpanded ? '' : 'max-h-20 overflow-hidden'}`}>
+                        <div
+                            className="prose prose-sm prose-gray dark:prose-invert [&_h2]:text-sm [&_h2]:font-medium"
+                            dangerouslySetInnerHTML={{ __html: weeklySummary }}
+                        />
+                        {!summaryExpanded && (
+                            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent dark:from-[#19171B]" />
+                        )}
+                    </div>
+                </div>
+            )}
             <Editor
                 key={displayedDate}
                 content={displayedNote.content}
@@ -249,27 +263,8 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                 onUpdate={isToday ? handleUpdate : undefined}
                 editable={isToday}
             />
-            <FloatingMenu />
+            <FloatingMenu onNavigate={navigateTo} />
             <SessionExpiredOverlay />
-            {weeklySummary && isToday && (
-                <aside className="mt-12 flex flex-col items-center gap-8 pb-9">
-                    <div
-                        className="max-w-md rotate-1 bg-gray-100 px-6 py-5 shadow-[2px_3px_12px_rgba(0,0,0,0.12)] dark:bg-[#131113] dark:shadow-[2px_3px_16px_rgba(0,0,0,0.4)] cursor-pointer"
-                        onClick={() => setSummaryExpanded(prev => !prev)}
-                    >
-                        <h2 className="mb-2 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
-                        <div className={`relative ${summaryExpanded ? '' : 'max-h-24 overflow-hidden'}`}>
-                            <div
-                                className="prose prose-sm prose-gray dark:prose-invert [&_h2]:text-sm [&_h2]:font-medium"
-                                dangerouslySetInnerHTML={{ __html: weeklySummary }}
-                            />
-                            {!summaryExpanded && (
-                                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-gray-100 to-transparent dark:from-[#131113]" />
-                            )}
-                        </div>
-                    </div>
-                </aside>
-            )}
         </div>
     );
 }

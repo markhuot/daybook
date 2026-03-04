@@ -236,27 +236,29 @@ it('does not allow navigating to dates with invalid format', function () {
     $this->actingAs($user)->get('/2026-1-1')->assertStatus(404);
 });
 
-// --- Previous content / placeholder tests ---
+// --- Placeholder tests ---
 
-it('provides previous content when today note is empty', function () {
+it('provides static placeholder when today note is empty and no AI placeholder exists', function () {
     $user = User::factory()->create();
-    $previousContent = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'yesterday stuff']]]]];
 
     Note::factory()->create([
         'user_id' => $user->id,
         'date' => now()->subDay()->toDateString(),
-        'content' => $previousContent,
+        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'yesterday stuff']]]]],
     ]);
 
     $response = $this->actingAs($user)->get('/');
 
     $response->assertInertia(fn (AssertableInertia $page) => $page
         ->where('note.content', null)
-        ->where('previousContent', $previousContent)
+        ->where('previousContent', [
+            'type' => 'doc',
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => "What's on your plate today?"]]]],
+        ])
     );
 });
 
-it('does not provide previous content when today note has content', function () {
+it('does not provide placeholder when today note has content', function () {
     $user = User::factory()->create();
 
     Note::factory()->create([
@@ -279,21 +281,16 @@ it('does not provide previous content when today note has content', function () 
     );
 });
 
-it('skips days without content when finding previous content', function () {
+it('provides static placeholder even when no previous notes exist', function () {
     $user = User::factory()->create();
-    $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'three days ago']]]]];
-
-    // 3 days ago has content, yesterday and 2 days ago do not
-    Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => now()->subDays(3)->toDateString(),
-        'content' => $content,
-    ]);
 
     $response = $this->actingAs($user)->get('/');
 
     $response->assertInertia(fn (AssertableInertia $page) => $page
-        ->where('previousContent', $content)
+        ->where('previousContent', [
+            'type' => 'doc',
+            'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => "What's on your plate today?"]]]],
+        ])
     );
 });
 
