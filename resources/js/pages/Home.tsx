@@ -201,12 +201,12 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
 
     return (
         <div className="mx-auto flex min-h-screen max-w-4xl flex-col py-12" style={{ fontSize: '18px', lineHeight: '1.75' }}>
-            <p className="px-4 pl-20 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
-            <div className="mb-8 flex items-center gap-3 px-4 pl-20">
+            <p className="pl-20 pr-4 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">{formatWeekday(noteDate)}</p>
+            <div className="relative mb-8 flex items-center gap-3 pl-20 pr-4">
                 <a
                     href={`/${prevDate}`}
                     onClick={(e) => { e.preventDefault(); navigateTo(prevDate); }}
-                    className="-ml-8 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-200"
+                    className="absolute left-12 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-200"
                     aria-label="Previous day"
                 >
                     &larr;
@@ -234,7 +234,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             </div>
             {weeklySummary && isToday && (
                 <div
-                    className="mb-8 ml-[4.25rem] mr-[2em] w-fit cursor-pointer"
+                    className="mb-8 pl-20 pr-4 w-fit cursor-pointer"
                     onClick={() => setSummaryExpanded(prev => !prev)}
                 >
                     <div className="mb-2 flex items-center gap-2">
