@@ -8,6 +8,7 @@ import {
     sinkListItem,
 } from 'prosemirror-schema-list';
 import { history, undo, redo } from 'prosemirror-history';
+import { collab } from 'prosemirror-collab';
 import {
     inputRules,
     wrappingInputRule,
@@ -314,12 +315,26 @@ function buildKeymap(): Plugin {
     });
 }
 
-export function buildPlugins(): Plugin[] {
-    return [
+interface CollabOptions {
+    version?: number;
+    clientID?: string;
+}
+
+export function buildPlugins(options: CollabOptions = {}): Plugin[] {
+    const plugins: Plugin[] = [
         buildInputRules(),
         history(),
         buildKeymap(),
         keymap(baseKeymap),
         linkExpandPlugin(),
     ];
+
+    if (options.version !== undefined) {
+        plugins.push(collab({
+            version: options.version,
+            clientID: options.clientID,
+        }));
+    }
+
+    return plugins;
 }

@@ -1,8 +1,13 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
+import { EditorView } from 'prosemirror-view';
+import { sendableSteps, receiveTransaction, getVersion } from 'prosemirror-collab';
+import { Step } from 'prosemirror-transform';
+import { useEcho } from '@laravel/echo-react';
 import Editor from '@/components/Editor';
 import FloatingMenu from '@/components/FloatingMenu';
 import SessionExpiredOverlay from '@/components/SessionExpiredOverlay';
+import { schema } from '@/components/editor/schema';
 
 interface NoteEntry {
     id: number | null;
@@ -11,6 +16,7 @@ interface NoteEntry {
 
 interface Note extends NoteEntry {
     date: string;
+    version: number;
 }
 
 interface Props {
@@ -82,13 +88,13 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
     const displayedNote = useMemo((): Note => {
         const cached = notesCacheRef.current[displayedDate];
         if (cached) {
-            return { date: displayedDate, id: cached.id, content: cached.content };
+            return { date: displayedDate, id: cached.id, content: cached.content, version: note.version };
         }
         // Fallback to server note if cache miss (shouldn't happen normally)
         if (displayedDate === note.date) {
             return note;
         }
-        return { date: displayedDate, id: null, content: null };
+        return { date: displayedDate, id: null, content: null, version: 0 };
     }, [displayedDate, note]);
 
     const noteDate = useMemo(() => parseDateLocal(displayedDate), [displayedDate]);
@@ -145,39 +151,130 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         }
     }, [localToday]);
 
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const savingRef = useRef(false);
-    const pendingContentRef = useRef<Record<string, unknown> | null>(null);
+    // --- Collab: step-sending and receiving ---
 
-    const flushSave = useCallback((content: Record<string, unknown>) => {
-        savingRef.current = true;
-        fetch('/note', {
-            method: 'PUT',
-            redirect: 'manual',
+    // Per-tab unique client ID for the collab plugin
+    const clientIDRef = useRef(
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : Math.random().toString(36).slice(2) + Date.now().toString(36),
+    );
+
+    // EditorView ref shared with the Editor component
+    const editorViewRef = useRef<EditorView | null>(null);
+
+    // Track whether a step send is in-flight to serialize sends
+    const sendingRef = useRef(false);
+    // Track whether we need to retry sending after current send completes
+    const sendQueuedRef = useRef(false);
+
+    // Debounce timer for batching rapid keystrokes into fewer HTTP requests
+    const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const sendSteps = useCallback(() => {
+        const view = editorViewRef.current;
+        if (!view || sendingRef.current) {
+            if (view && sendingRef.current) {
+                sendQueuedRef.current = true;
+            }
+            return;
+        }
+
+        const sendable = sendableSteps(view.state);
+        if (!sendable) return;
+
+        sendingRef.current = true;
+
+        fetch('/note/steps', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-XSRF-TOKEN': getCsrfToken(),
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ content }),
-        }).then(() => {
-            savingRef.current = false;
-            // If new content queued while we were saving, send it now
-            const queued = pendingContentRef.current;
-            if (queued) {
-                pendingContentRef.current = null;
-                flushSave(queued);
-            }
-        }, () => {
-            savingRef.current = false;
-            // On failure, retry the queued content (or this content) after a delay
-            const queued = pendingContentRef.current ?? content;
-            pendingContentRef.current = null;
-            setTimeout(() => flushSave(queued), 2000);
-        });
+            body: JSON.stringify({
+                version: sendable.version,
+                steps: sendable.steps.map(s => s.toJSON()),
+                clientID: sendable.clientID,
+                doc: view.state.doc.toJSON(),
+            }),
+        })
+            .then(res => {
+                if (res.status === 409) {
+                    // Version mismatch — server includes missing steps for catch-up
+                    return res.json().then((data: { version: number; steps: unknown[]; clientIDs: (string | number)[] }) => {
+                        applyReceivedSteps(data);
+                        // After rebase, retry sending our steps
+                        sendingRef.current = false;
+                        sendSteps();
+                    });
+                }
+                if (!res.ok) {
+                    // Other error — retry after delay
+                    sendingRef.current = false;
+                    setTimeout(sendSteps, 2000);
+                    return;
+                }
+                // Success — confirm our steps with the collab plugin so
+                // they move from "unconfirmed" to "confirmed" and the
+                // local version advances.
+                const currentView = editorViewRef.current;
+                if (currentView) {
+                    const tr = receiveTransaction(
+                        currentView.state,
+                        sendable.steps,
+                        sendable.steps.map(() => sendable.clientID),
+                    );
+                    currentView.dispatch(tr);
+                }
+                sendingRef.current = false;
+                if (sendQueuedRef.current) {
+                    sendQueuedRef.current = false;
+                    sendSteps();
+                }
+            })
+            .catch(() => {
+                sendingRef.current = false;
+                setTimeout(sendSteps, 2000);
+            });
     }, []);
 
-    // Use fetch() instead of router.put() to avoid Inertia redirect snap-back
+    const scheduleSendSteps = useCallback(() => {
+        if (sendTimerRef.current) {
+            clearTimeout(sendTimerRef.current);
+        }
+        sendTimerRef.current = setTimeout(sendSteps, 100);
+    }, [sendSteps]);
+
+    const applyReceivedSteps = useCallback((data: { version: number; steps: unknown[]; clientIDs: (string | number)[] }) => {
+        const view = editorViewRef.current;
+        if (!view || !data.steps || data.steps.length === 0) return;
+
+        const steps = data.steps.map(s => Step.fromJSON(schema, s as Record<string, unknown>));
+        const tr = receiveTransaction(view.state, steps, data.clientIDs);
+        view.dispatch(tr);
+    }, []);
+
+    // Listen for broadcast steps from other tabs via Echo/Reverb
+    // Only subscribe when we have a note ID (note exists in DB)
+    const channelName = displayedNote.id && isToday ? `note.${displayedNote.id}` : '';
+
+    useEcho(
+        channelName,
+        '.steps.accepted',
+        (event: { version: number; steps: unknown[]; clientIDs: (string | number)[] }) => {
+            // Skip broadcasts that originated entirely from this tab —
+            // those steps were already confirmed in the POST 200 handler.
+            const myID = clientIDRef.current;
+            if (event.clientIDs.every(id => String(id) === String(myID))) return;
+            applyReceivedSteps(event);
+        },
+        [applyReceivedSteps, channelName],
+    );
+
+    // --- Collab: sending steps on editor update ---
+
+    // Called by Editor on every docChanged
     const handleUpdate = useCallback((content: Record<string, unknown>) => {
         // Optimistically update the cache for today
         notesCacheRef.current[localToday] = {
@@ -185,19 +282,51 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             content,
         };
 
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
+        // Use collab step-sending instead of full-document save
+        scheduleSendSteps();
+    }, [localToday, scheduleSendSteps]);
 
-        timeoutRef.current = setTimeout(() => {
-            if (savingRef.current) {
-                // A save is already in-flight — queue this content for when it finishes
-                pendingContentRef.current = content;
-            } else {
-                flushSave(content);
-            }
-        }, 500);
-    }, [localToday, flushSave]);
+    // Reconnection catch-up: when WebSocket reconnects, fetch missed steps
+    // This is handled by Echo's automatic reconnection — after reconnecting,
+    // we fetch any steps we missed while disconnected.
+    useEffect(() => {
+        if (!isToday || !editorViewRef.current) return;
+
+        const handleOnline = () => {
+            const view = editorViewRef.current;
+            if (!view) return;
+
+            const currentVersion = getVersion(view.state);
+            fetch(`/note/steps?since=${currentVersion}`, {
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                    'Accept': 'application/json',
+                },
+            })
+                .then(res => {
+                    if (res.status === 410) {
+                        // Steps expired from Redis — full reload needed
+                        window.location.reload();
+                        return;
+                    }
+                    if (!res.ok) return;
+                    return res.json();
+                })
+                .then((data: { version: number; steps: unknown[]; clientIDs: (string | number)[] } | undefined) => {
+                    if (data && data.steps && data.steps.length > 0) {
+                        applyReceivedSteps(data);
+                    }
+                    // After catching up, send any pending local steps
+                    sendSteps();
+                })
+                .catch(() => {
+                    // Silent failure — will retry on next reconnection
+                });
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [isToday, applyReceivedSteps, sendSteps]);
 
     return (
         <div className="mx-auto flex min-h-screen max-w-4xl flex-col py-12" style={{ fontSize: '18px', lineHeight: '1.75' }}>
@@ -262,6 +391,9 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                 previousContent={isToday ? effectivePreviousContent : undefined}
                 onUpdate={isToday ? handleUpdate : undefined}
                 editable={isToday}
+                version={isToday ? note.version : undefined}
+                viewRef={isToday ? editorViewRef : undefined}
+                clientID={clientIDRef.current}
             />
             <FloatingMenu onNavigate={navigateTo} />
             <SessionExpiredOverlay />

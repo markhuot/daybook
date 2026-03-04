@@ -7,6 +7,16 @@ use Inertia\Testing\AssertableInertia;
 
 uses(RefreshDatabase::class);
 
+function linkSampleStep(): array
+{
+    return [
+        'stepType' => 'replace',
+        'from' => 0,
+        'to' => 0,
+        'slice' => ['content' => [['type' => 'text', 'text' => 'a']]],
+    ];
+}
+
 // --- Round-trip tests: save and retrieve link content ---
 
 it('saves content with a markdown-style link mark', function () {
@@ -26,8 +36,13 @@ it('saves content with a markdown-style link mark', function () {
         ]],
     ];
 
-    $response = $this->actingAs($user)->put('/note', ['content' => $content]);
-    $response->assertRedirect();
+    $response = $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-1',
+        'doc' => $content,
+    ]);
+    $response->assertOk();
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();
@@ -52,8 +67,13 @@ it('saves content with a bare URL link mark', function () {
         ]],
     ];
 
-    $response = $this->actingAs($user)->put('/note', ['content' => $content]);
-    $response->assertRedirect();
+    $response = $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-2',
+        'doc' => $content,
+    ]);
+    $response->assertOk();
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();
@@ -89,9 +109,9 @@ it('retrieves link content via Inertia props', function () {
     );
 });
 
-// --- Empty detection: notes with only links should NOT be treated as empty ---
+// --- Content with only links should be saved normally ---
 
-it('does not delete a note containing only a markdown link', function () {
+it('saves a note containing only a markdown link', function () {
     $user = User::factory()->create();
     $content = [
         'type' => 'doc',
@@ -105,14 +125,19 @@ it('does not delete a note containing only a markdown link', function () {
         ]],
     ];
 
-    $this->actingAs($user)->put('/note', ['content' => $content]);
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-3',
+        'doc' => $content,
+    ]);
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();
     expect($note->content)->toBe($content);
 });
 
-it('does not delete a note containing only a bare URL link', function () {
+it('saves a note containing only a bare URL link', function () {
     $user = User::factory()->create();
     $content = [
         'type' => 'doc',
@@ -126,7 +151,12 @@ it('does not delete a note containing only a bare URL link', function () {
         ]],
     ];
 
-    $this->actingAs($user)->put('/note', ['content' => $content]);
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-4',
+        'doc' => $content,
+    ]);
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();
@@ -143,6 +173,7 @@ it('preserves link marks when updating an existing note', function () {
         'user_id' => $user->id,
         'date' => now()->toDateString(),
         'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
+        'version' => 0,
     ]);
 
     // Update with linked content
@@ -161,7 +192,12 @@ it('preserves link marks when updating an existing note', function () {
         ]],
     ];
 
-    $this->actingAs($user)->put('/note', ['content' => $newContent]);
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-5',
+        'doc' => $newContent,
+    ]);
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note->content)->toBe($newContent);
@@ -189,7 +225,12 @@ it('preserves multiple links in the same paragraph', function () {
         ]],
     ];
 
-    $this->actingAs($user)->put('/note', ['content' => $content]);
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [linkSampleStep()],
+        'clientID' => 'tab-link-6',
+        'doc' => $content,
+    ]);
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();

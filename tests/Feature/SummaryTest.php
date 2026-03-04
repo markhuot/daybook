@@ -12,29 +12,18 @@ uses(RefreshDatabase::class);
 
 // --- Job dispatch tests ---
 
-it('dispatches weekly summary job when a note is saved', function () {
+it('dispatches weekly summary job when a note is saved via steps', function () {
     Queue::fake();
 
     $user = User::factory()->create();
     $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]];
 
-    $this->actingAs($user)->put('/note', ['content' => $content]);
-
-    Queue::assertPushed(GenerateWeeklySummary::class);
-});
-
-it('dispatches weekly summary job when a note is deleted', function () {
-    Queue::fake();
-
-    $user = User::factory()->create();
-    Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => now()->toDateString(),
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+        'clientID' => 'tab-summary',
+        'doc' => $content,
     ]);
-
-    // Send null content to trigger delete
-    $this->actingAs($user)->put('/note', ['content' => null]);
 
     Queue::assertPushed(GenerateWeeklySummary::class);
 });
@@ -46,8 +35,14 @@ it('persists the user timezone from the cookie on save', function () {
     $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]];
 
     $this->actingAs($user)
+        ->withCredentials()
         ->withUnencryptedCookie('timezone', 'America/New_York')
-        ->put('/note', ['content' => $content]);
+        ->postJson('/note/steps', [
+            'version' => 0,
+            'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+            'clientID' => 'tab-tz',
+            'doc' => $content,
+        ]);
 
     $user->refresh();
     expect($user->timezone)->toBe('America/New_York');

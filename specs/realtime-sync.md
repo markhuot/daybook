@@ -166,19 +166,25 @@ POST /note/steps
 4. If request.version != note.version:
      - Return 409 Conflict with { version: note.version }.
        The client will fetch missing steps and rebase.
-5. Parse each step JSON into a ProseMirror Step object.
-   (Use the prosemirror-transform PHP port, or -- more practically --
-    apply the steps by reconstructing the document from JSON on the
-    server. See section 3.4.)
-6. Apply each step to the document sequentially. If any step fails
-   to apply, reject the entire batch with 400.
-7. Increment the note's version by the number of accepted steps.
-8. Persist the new document JSON and version to the database.
-9. Write each step to the Redis sorted set with its version as score.
+ 5. Parse each step JSON into a ProseMirror Step object.
+    (Use the prosemirror-transform PHP port, or -- more practically --
+     apply the steps by reconstructing the document from JSON on the
+     server. See section 3.4.)
+ 6. Apply each step to the document sequentially. If any step fails
+    to apply, reject the entire batch with 400.
+ 7. Increment the note's version by the number of accepted steps.
+ 8. Persist the new document JSON and version to the database.
+ 9. Write each step to the Redis sorted set with its version as score.
 10. Reset the Redis key TTL to 1 hour.
 11. Release the lock.
 12. Broadcast a NoteStepsAccepted event via Reverb.
-13. Return 200 with { version: note.new_version }.
+13. Persist the user's timezone (from cookie) for background jobs.
+14. Dispatch GenerateWeeklySummary and GenerateNoteEmbeddings with a
+    30-second delay. Both jobs implement ShouldBeUnique, so rapid step
+    batches during active typing will not queue duplicate jobs -- only
+    the first dispatch in each uniqueness window actually enqueues.
+    See section 6 for details.
+15. Return 200 with { version: note.new_version }.
 ```
 
 **Response (success):**
@@ -504,12 +510,19 @@ trigger this.
 
 The current flow in `Home.tsx` -- 500ms debounced `fetch('PUT /note')` sending
 the full document -- is replaced entirely by the collab step-sending mechanism.
-The `PUT /note` endpoint remains for cases where collab is not active (e.g., if
-Reverb is unavailable), but the primary write path becomes `POST /note/steps`.
+The `PUT /note` endpoint, `NoteUpdateController`, and `NoteUpdateData` have been
+removed. `POST /note/steps` is the only write path.
 
-The existing `PUT /note` endpoint should also be updated to include a `version`
-field so it can set the version when doing a full-document save (e.g., on initial
-note creation or as a fallback).
+There is no fallback to a full-document PUT save. If Reverb is unavailable, the
+collab system still functions because step submission is HTTP-based (`POST
+/note/steps`). Reverb is only used for broadcasting accepted steps to other tabs.
+The `NoteStepsController` already wraps broadcasts in a try/catch so Reverb
+downtime is non-fatal -- the submitting client's document is persisted normally,
+and other tabs catch up via the `GET /note/steps` polling endpoint when they
+reconnect.
+
+The legacy save code (`flushSave`, `handleUpdateLegacy`, and associated refs)
+has been removed from `Home.tsx`.
 
 ---
 
@@ -558,20 +571,46 @@ Tab A                    Server                    Tab B
 
 ---
 
-## 6. Debounced Full-Document Persistence
+## 6. Background Job Debouncing
 
-While every step batch writes the document to the database (because the client
-sends `doc` alongside steps), we should add a secondary debounced persistence
-mechanism as a safety net:
+The step acceptance endpoint dispatches `GenerateWeeklySummary` and
+`GenerateNoteEmbeddings` after persisting each step batch. Without debouncing,
+typing a paragraph would trigger these expensive AI jobs on every keystroke
+batch (~every 100ms of typing).
 
-- After 5 seconds of inactivity, the client sends the full document state via
-  `PUT /note` as before. This ensures the DB is always consistent even if a step
-  batch was lost or a client crashed mid-edit.
-- This is a background save, not the primary sync path. It does not go through
-  the collab version mechanism and simply overwrites `content` (but updates
-  `version` to the current collab version).
+### Mechanism
 
-This is optional and can be deferred to a later phase.
+Both jobs implement `ShouldBeUnique` with a `uniqueFor` TTL (configurable,
+defaults to 3600 seconds). This means:
+
+1. The first step batch dispatches the job with a **30-second delay**.
+2. The unique lock is acquired at dispatch time.
+3. Subsequent dispatches within the `uniqueFor` window are silently dropped by
+   Laravel's queue system.
+4. After the 30-second delay, the queue worker executes the job against the
+   current database state, which by then contains all the content the user typed
+   during those 30 seconds.
+5. Once the job finishes (and the unique lock is released or expires), the next
+   step batch can dispatch a fresh job.
+
+The 30-second delay is the key: it ensures that rapid typing triggers the job
+only once, and that job runs against a document that has at least 30 seconds of
+edits baked in. This is sufficient for a single-user journaling app where the
+user types continuously for minutes at a time.
+
+### Configuration
+
+The debounce window (delay) and unique-for TTL are separate concerns:
+
+- **Delay** (30 seconds): How long to wait before running the job after the
+  first step batch in a burst. This is the "paragraph buffer."
+- **uniqueFor** (config-driven, default 3600 seconds): How long the unique lock
+  is held. This acts as a rate limit -- even if the user types for an hour
+  straight, the job runs at most once per `uniqueFor` period.
+
+Both values can be tuned independently. The delay is set in the controller; the
+unique-for TTL is set on the job classes via config (`summaries.debounce_seconds`
+and `embeddings.debounce_seconds`).
 
 ---
 
@@ -644,9 +683,11 @@ existing Vite dev server and Laravel server).
    DB persistence, and broadcasting.
 3. Create `GET /note/steps?since=` catch-up endpoint.
 4. Add `version` to the Inertia props returned by `NoteShowController`.
-5. Update `NoteUpdateController` to set `version` when doing a full-document
-   save.
-6. Write Pest tests for the step acceptance endpoint (version mismatch, locking,
+5. Remove `PUT /note` route, `NoteUpdateController`, and `NoteUpdateData`.
+6. Dispatch `GenerateWeeklySummary` and `GenerateNoteEmbeddings` from the step
+   endpoint with a 30-second delay (debounced via `ShouldBeUnique`).
+7. Persist the user's timezone from the step endpoint for background jobs.
+8. Write Pest tests for the step acceptance endpoint (version mismatch, locking,
    Redis storage, broadcast assertion).
 
 ### Phase 3: Client-Side Collab
@@ -654,21 +695,20 @@ existing Vite dev server and Laravel server).
 1. Add `prosemirror-collab` plugin to `buildPlugins()`.
 2. Configure Echo in `resources/js/echo.ts` and import in `app.tsx`.
 3. Replace the debounced full-document save with the collab step-sending loop.
-4. Wire up `useEcho` to receive steps and dispatch `receiveTransaction`.
-5. Generate a per-tab `clientID` on mount.
-6. Handle 409 conflict responses (apply missing steps, retry).
-7. Handle reconnection (catch-up via `GET /note/steps`).
+4. Remove the legacy `PUT /note` save code (`flushSave`, `handleUpdateLegacy`,
+   and associated refs) from `Home.tsx`.
+5. Wire up `useEcho` to receive steps and dispatch `receiveTransaction`.
+6. Generate a per-tab `clientID` on mount.
+7. Handle 409 conflict responses (apply missing steps, retry).
+8. Handle reconnection (catch-up via `GET /note/steps`).
 
 ### Phase 4: Edge Cases & Polish
 
 1. Handle Redis step expiry (410 -> full reload).
-2. Graceful degradation if Reverb is not running (fall back to the old
-   full-document save mechanism).
-3. Handle note creation race (two tabs open on a day with no note yet -- both
+2. Handle note creation race (two tabs open on a day with no note yet -- both
    try to create it).
-4. Debounced full-document save as a background safety net.
-5. Dispatch `GenerateWeeklySummary` and `GenerateNoteEmbeddings` jobs from the
-   step endpoint (debounced, not on every step batch).
+3. Verify background job debouncing works correctly (jobs fire once after typing
+   stops, not on every step batch).
 
 ---
 

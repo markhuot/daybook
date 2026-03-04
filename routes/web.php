@@ -7,7 +7,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\RegisterStoreController;
 use App\Http\Controllers\NoteShowController;
-use App\Http\Controllers\NoteUpdateController;
+use App\Http\Controllers\NoteStepsController;
 use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,7 +23,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', NoteShowController::class)->name('home');
     Route::get('/{date}', NoteShowController::class)->name('note.show')->where('date', '\d{4}-\d{2}-\d{2}');
-    Route::put('/note', NoteUpdateController::class)->name('note.update');
+    Route::post('/note/steps', [NoteStepsController::class, 'store'])->name('note.steps.store');
+    Route::get('/note/steps', [NoteStepsController::class, 'index'])->name('note.steps.index');
     Route::get('/search', SearchController::class)->name('search');
 
     Route::post('/logout', LogoutController::class)->name('logout');

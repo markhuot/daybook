@@ -154,9 +154,9 @@ it('offers static placeholder based on timezone-adjusted today', function () {
     );
 });
 
-// --- NoteUpdateController timezone tests ---
+// --- NoteStepsController timezone tests ---
 
-it('saves notes to the timezone-adjusted date', function () {
+it('saves steps to the timezone-adjusted date', function () {
     // Server clock: 2026-03-03 03:00 UTC
     // In LA, today is March 2nd — note should be saved to March 2nd
     $this->travelTo(Carbon::create(2026, 3, 3, 3, 0, 0, 'UTC'));
@@ -165,8 +165,14 @@ it('saves notes to the timezone-adjusted date', function () {
     $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'late night in LA']]]]];
 
     $this->actingAs($user)
+        ->withCredentials()
         ->withUnencryptedCookie('timezone', 'America/Los_Angeles')
-        ->put('/note', ['content' => $content]);
+        ->postJson('/note/steps', [
+            'version' => 0,
+            'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+            'clientID' => 'tab-tz',
+            'doc' => $content,
+        ]);
 
     $note = Note::where('user_id', $user->id)->first();
     expect($note)->not->toBeNull();
@@ -187,6 +193,7 @@ it('updates the correct note when timezone shifts today', function () {
         'user_id' => $user->id,
         'date' => '2026-03-02',
         'content' => $oldContent,
+        'version' => 0,
     ]);
 
     // Also a note for March 3rd (UTC today, but not LA today)
@@ -194,11 +201,18 @@ it('updates the correct note when timezone shifts today', function () {
         'user_id' => $user->id,
         'date' => '2026-03-03',
         'content' => $oldContent,
+        'version' => 0,
     ]);
 
     $this->actingAs($user)
+        ->withCredentials()
         ->withUnencryptedCookie('timezone', 'America/Los_Angeles')
-        ->put('/note', ['content' => $newContent]);
+        ->postJson('/note/steps', [
+            'version' => 0,
+            'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+            'clientID' => 'tab-tz',
+            'doc' => $newContent,
+        ]);
 
     // March 2nd note (LA today) should be updated
     $note->refresh();
@@ -207,34 +221,4 @@ it('updates the correct note when timezone shifts today', function () {
     // March 3rd note (UTC today) should be untouched
     $utcNote->refresh();
     expect($utcNote->content['content'][0]['content'][0]['text'])->toBe('original');
-});
-
-it('deletes the timezone-adjusted today note when content is cleared', function () {
-    // Server clock: 2026-03-03 03:00 UTC
-    // In LA, today is March 2nd
-    $this->travelTo(Carbon::create(2026, 3, 3, 3, 0, 0, 'UTC'));
-
-    $user = User::factory()->create();
-
-    $march2Note = Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => '2026-03-02',
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
-    ]);
-
-    $march3Note = Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => '2026-03-03',
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
-    ]);
-
-    $this->actingAs($user)
-        ->withUnencryptedCookie('timezone', 'America/Los_Angeles')
-        ->put('/note', ['content' => null]);
-
-    // March 2nd (LA today) should be deleted
-    $this->assertDatabaseMissing('notes', ['id' => $march2Note->id]);
-
-    // March 3rd (UTC today) should still exist
-    $this->assertDatabaseHas('notes', ['id' => $march3Note->id]);
 });

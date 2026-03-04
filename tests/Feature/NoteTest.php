@@ -61,69 +61,6 @@ it('does not create rows when browsing dates', function () {
     expect(Note::where('user_id', $user->id)->count())->toBe(0);
 });
 
-it('saves note content', function () {
-    $user = User::factory()->create();
-    $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]];
-
-    $response = $this->actingAs($user)->put('/note', [
-        'content' => $content,
-    ]);
-
-    $response->assertRedirect();
-
-    $note = Note::where('user_id', $user->id)->first();
-    expect($note)->not->toBeNull();
-    expect($note->date)->toBe(now()->toDateString());
-    expect($note->content)->toBe($content);
-});
-
-it('deletes the row when content is cleared', function () {
-    $user = User::factory()->create();
-    $note = Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => now()->toDateString(),
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
-    ]);
-
-    // Send null content
-    $this->actingAs($user)->put('/note', ['content' => null]);
-
-    $this->assertDatabaseMissing('notes', ['id' => $note->id]);
-});
-
-it('deletes the row when content is an empty doc', function () {
-    $user = User::factory()->create();
-    $note = Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => now()->toDateString(),
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
-    ]);
-
-    // Send a doc with only empty paragraphs — no real text
-    $this->actingAs($user)->put('/note', [
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph']]],
-    ]);
-
-    $this->assertDatabaseMissing('notes', ['id' => $note->id]);
-});
-
-it('creates the row on first save when no note exists yet', function () {
-    $user = User::factory()->create();
-    $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'new day']]]]];
-
-    $this->assertDatabaseMissing('notes', ['user_id' => $user->id, 'date' => now()->toDateString()]);
-
-    $this->actingAs($user)->put('/note', ['content' => $content]);
-
-    $note = Note::where('user_id', $user->id)->where('date', now()->toDateString())->first();
-    expect($note)->not->toBeNull();
-    expect($note->content)->toBe($content);
-});
-
-it('requires authentication to save a note', function () {
-    $this->put('/note', ['content' => null])->assertRedirect('/login');
-});
-
 // --- Navigation tests ---
 
 it('can view a past date via the date route', function () {
@@ -202,7 +139,7 @@ it('returns past date for date routes so frontend can determine read-only', func
     );
 });
 
-it('only allows updating today note via PUT', function () {
+it('only allows updating today note via steps', function () {
     $user = User::factory()->create();
     $pastDate = now()->subDay()->toDateString();
 
@@ -215,8 +152,13 @@ it('only allows updating today note via PUT', function () {
 
     $newContent = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'tampered']]]]];
 
-    // PUT /note always writes to today, not to the past note
-    $this->actingAs($user)->put('/note', ['content' => $newContent]);
+    // POST /note/steps always writes to today, not to the past note
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+        'clientID' => 'tab-test',
+        'doc' => $newContent,
+    ]);
 
     // Past note should be untouched
     $note->refresh();

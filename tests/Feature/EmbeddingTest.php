@@ -12,28 +12,18 @@ uses(RefreshDatabase::class);
 
 // --- Job dispatch tests ---
 
-it('dispatches embedding job when a note is saved', function () {
+it('dispatches embedding job when a note is saved via steps', function () {
     Queue::fake();
 
     $user = User::factory()->create();
     $content = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]];
 
-    $this->actingAs($user)->put('/note', ['content' => $content]);
-
-    Queue::assertPushed(GenerateNoteEmbeddings::class);
-});
-
-it('dispatches embedding job when a note is deleted', function () {
-    Queue::fake();
-
-    $user = User::factory()->create();
-    Note::factory()->create([
-        'user_id' => $user->id,
-        'date' => now()->toDateString(),
-        'content' => ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'hello']]]]],
+    $this->actingAs($user)->postJson('/note/steps', [
+        'version' => 0,
+        'steps' => [['stepType' => 'replace', 'from' => 0, 'to' => 0, 'slice' => ['content' => [['type' => 'text', 'text' => 'a']]]]],
+        'clientID' => 'tab-embed',
+        'doc' => $content,
     ]);
-
-    $this->actingAs($user)->put('/note', ['content' => null]);
 
     Queue::assertPushed(GenerateNoteEmbeddings::class);
 });

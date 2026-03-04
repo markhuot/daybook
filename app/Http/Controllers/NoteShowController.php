@@ -61,6 +61,7 @@ class NoteShowController extends Controller
                 'id' => $note?->id,
                 'date' => $date,
                 'content' => $note?->content,
+                'version' => $note?->version ?? 0,
             ],
             'notes' => $notes,
         ];

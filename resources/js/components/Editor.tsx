@@ -12,6 +12,9 @@ interface EditorProps {
     previousContent?: Record<string, unknown> | null;
     onUpdate?: (content: Record<string, unknown>) => void;
     editable?: boolean;
+    version?: number;
+    viewRef?: React.MutableRefObject<EditorView | null>;
+    clientID?: string;
 }
 
 function renderContentToHTML(content: Record<string, unknown>): string {
@@ -36,9 +39,9 @@ function hasTextContent(content: Record<string, unknown>): boolean {
     }
 }
 
-export default function Editor({ content, previousContent, onUpdate, editable = true }: EditorProps) {
+export default function Editor({ content, previousContent, onUpdate, editable = true, version, viewRef: externalViewRef, clientID }: EditorProps) {
     const editorRef = useRef<HTMLDivElement>(null);
-    const viewRef = useRef<EditorView | null>(null);
+    const internalViewRef = useRef<EditorView | null>(null);
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
 
@@ -46,6 +49,8 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
     editableRef.current = editable;
 
     const initialContentRef = useRef(content);
+    const initialVersionRef = useRef(version);
+    const clientIDRef = useRef(clientID);
 
     const previousHasText = useMemo(() => {
         return !!previousContent && hasTextContent(previousContent);
@@ -63,16 +68,16 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
     }, [previousContent, previousHasText]);
 
     const handleAccept = useCallback(() => {
-        if (!viewRef.current || !previousContent) return;
+        if (!internalViewRef.current || !previousContent) return;
         const newDoc = Node.fromJSON(schema, previousContent);
-        const tr = viewRef.current.state.tr.replaceWith(
+        const tr = internalViewRef.current.state.tr.replaceWith(
             0,
-            viewRef.current.state.doc.content.size,
+            internalViewRef.current.state.doc.content.size,
             newDoc.content,
         );
         tr.setSelection(TextSelection.create(tr.doc, 1));
-        viewRef.current.dispatch(tr);
-        viewRef.current.focus();
+        internalViewRef.current.dispatch(tr);
+        internalViewRef.current.focus();
         // dispatchTransaction handles hiding the placeholder and calling onUpdate
     }, [previousContent]);
 
@@ -86,10 +91,16 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
             ? Node.fromJSON(schema, initialContentRef.current)
             : undefined;
 
+        const collabEnabled = initialVersionRef.current !== undefined;
+
         const state = EditorState.create({
             schema,
             doc,
-            plugins: buildPlugins(),
+            plugins: buildPlugins(
+                collabEnabled
+                    ? { version: initialVersionRef.current, clientID: clientIDRef.current }
+                    : {},
+            ),
         });
 
         const view = new EditorView(editorRef.current, {
@@ -127,7 +138,10 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
                 }
             },
         });
-        viewRef.current = view;
+        internalViewRef.current = view;
+        if (externalViewRef) {
+            externalViewRef.current = view;
+        }
 
         if (editableRef.current) {
             view.focus();
@@ -139,12 +153,16 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
 
         return () => {
             view.destroy();
+            internalViewRef.current = null;
+            if (externalViewRef) {
+                externalViewRef.current = null;
+            }
         };
     }, []);
 
     useEffect(() => {
-        if (viewRef.current) {
-            viewRef.current.setProps({ editable: () => editable });
+        if (internalViewRef.current) {
+            internalViewRef.current.setProps({ editable: () => editable });
         }
     }, [editable]);
 
