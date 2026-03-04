@@ -109,6 +109,7 @@ export function taskListItemView(
     const dom = document.createElement('li');
     dom.classList.add('task-list-item');
     dom.dataset.checked = String(node.attrs.checked);
+    dom.dataset.timerRunning = String(!!node.attrs.timerRunning);
 
     // ── Timer gutter ───────────────────────────────────────────────
     const timerEl = document.createElement('span');
@@ -145,12 +146,11 @@ export function taskListItemView(
             timerEl.appendChild(createPlayIcon());
             timerEl.title = '';
         } else if (running) {
-            // Running: "3m 12s" + pause icon
+            // Running: "3m 12s" with animated border
             const elapsed = getElapsed();
             timerEl.className = 'task-timer task-timer--running';
             timeTextNode = document.createTextNode(formatTime(elapsed));
             timerEl.appendChild(timeTextNode);
-            timerEl.appendChild(createPauseIcon());
             timerEl.title = formatTimeFull(elapsed);
         } else {
             // Paused with time: "3m 12s" (no icon — click to resume)
@@ -442,6 +442,7 @@ export function taskListItemView(
             }
             node = updatedNode;
             dom.dataset.checked = String(updatedNode.attrs.checked);
+            dom.dataset.timerRunning = String(!!updatedNode.attrs.timerRunning);
             checkbox.setAttribute(
                 'aria-checked',
                 String(updatedNode.attrs.checked),

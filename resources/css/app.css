@@ -121,8 +121,8 @@
 
 .ProseMirror .task-checkbox-display {
     display: inline-block;
-    width: 1em;
-    height: 1em;
+    width: calc(1em + 4px);
+    height: calc(1em + 4px);
     border: 2px solid #d4d4d4;
     border-radius: 50%;
     flex-shrink: 0;
@@ -160,8 +160,8 @@
 .ProseMirror .task-timer {
     position: absolute;
     right: 100%;
-    top: 3px;
-    margin-right: calc(2.25em + 4px);
+    top: 4px;
+    margin-right: calc(2.25em + 6px);
     white-space: nowrap;
     color: #9ca3af;
     cursor: pointer;
@@ -177,7 +177,7 @@
 
 .ProseMirror .task-timer--running,
 .ProseMirror .task-timer--paused {
-    margin-right: 0.75em;
+    margin-right: calc(0.75em + 2px);
     padding: 0.15em calc(1.5em + 10px) 0.15em 0.5em;
     background-color: #f3f4f6;
     border-radius: 9999px;
@@ -186,6 +186,28 @@
 
 .ProseMirror .task-timer--running {
     color: #6b7280;
+}
+
+.ProseMirror .task-list-item[data-timer-running='true'] .task-checkbox {
+    position: absolute;
+}
+
+.ProseMirror .task-list-item[data-timer-running='true'] .task-checkbox::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(1em + 8px);
+    height: calc(1em + 8px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: conic-gradient(#9ca3af, transparent);
+    animation: checkbox-spin 2s linear infinite;
+    z-index: -1;
+}
+
+@keyframes checkbox-spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 .ProseMirror .task-timer--running:hover {
@@ -306,6 +328,10 @@
 
     .ProseMirror .task-timer--running {
         color: #9ca3af;
+    }
+
+    .ProseMirror .task-list-item[data-timer-running='true'] .task-checkbox::before {
+        background: conic-gradient(#6b7280, transparent);
     }
 
     .ProseMirror .task-timer--running:hover {

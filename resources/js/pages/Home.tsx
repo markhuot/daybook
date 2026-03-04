@@ -234,16 +234,16 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             </div>
             {weeklySummary && isToday && (
                 <div
-                    className="mb-8 ml-[4.25rem] w-fit cursor-pointer border border-gray-900/10 p-4 dark:border-white/10"
+                    className="mb-8 ml-[4.25rem] mr-[2em] w-fit cursor-pointer"
                     onClick={() => setSummaryExpanded(prev => !prev)}
                 >
                     <div className="mb-2 flex items-center gap-2">
+                        <h2 className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-400 dark:text-gray-500">
                             <circle cx="7" cy="7" r="6" />
                             <line x1="7" y1="6" x2="7" y2="10" />
                             <circle cx="7" cy="4.25" r="0.5" fill="currentColor" stroke="none" />
                         </svg>
-                        <h2 className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">This week</h2>
                     </div>
                     <div className={`relative ${summaryExpanded ? '' : 'max-h-20 overflow-hidden'}`}>
                         <div
