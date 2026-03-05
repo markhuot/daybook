@@ -151,6 +151,9 @@ function buildInputRules(): Plugin {
             markInputRule(/(?<![*_])\*([^*]+)\*$/, schema.marks.italic),
             markInputRule(/(?<![*_])_([^_]+)_$/, schema.marks.italic),
 
+            // `code`
+            markInputRule(/`([^`]+)`$/, schema.marks.code),
+
             // # at start of line -> heading
             textblockTypeInputRule(/^#\s$/, schema.nodes.heading),
 
@@ -219,6 +222,7 @@ function buildKeymap(): Plugin {
         'Mod-y': redo,
         'Mod-b': toggleMark(schema.marks.bold),
         'Mod-i': toggleMark(schema.marks.italic),
+        'Mod-Shift-c': toggleMark(schema.marks.code),
         Enter: chainCommands(
             exitHeading,
             splitListItem(taskListItem, { checked: false }),

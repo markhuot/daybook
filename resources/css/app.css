@@ -66,6 +66,14 @@
     font-style: italic;
 }
 
+.ProseMirror code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.875em;
+    background-color: #f3f4f6;
+    padding: 0.125em 0.25em;
+    border-radius: 0.25em;
+}
+
 .ProseMirror ul {
     list-style-type: disc;
     padding-left: 0;
@@ -161,7 +169,7 @@
     position: absolute;
     right: 100%;
     top: 4px;
-    margin-right: calc(2.25em + 6px);
+    margin-right: calc(2.25em + 8px);
     white-space: nowrap;
     color: #a3a3a3;
     cursor: pointer;
@@ -268,7 +276,7 @@
     display: inline-block;
     width: 0.6em;
     height: 0.75em;
-    vertical-align: -0.05em;
+    vertical-align: calc(-0.05em - 1px);
     margin-left: 0.5em;
 }
 
@@ -298,6 +306,10 @@
 
     .ProseMirror li::marker {
         color: #4b5563;
+    }
+
+    .ProseMirror code {
+        background-color: #374151;
     }
 
     .ProseMirror .task-list-item[data-checked='true'] .task-checkbox-display {

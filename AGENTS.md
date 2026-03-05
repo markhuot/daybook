@@ -66,6 +66,10 @@ Editor styles live in `resources/css/app.css` targeting `.ProseMirror` classes.
 
 Always work within the project root (`/Users/markhuot/Sites/daybook`). Do not create files or directories outside of this folder. If you need a temporary directory for scratch work, use `.tmp/` in the project root. This directory is gitignored and can be freely created, written to, and deleted.
 
+## After Front-End Changes
+
+Always run `bun run build` after making any front-end changes (JS, TS, CSS, etc.) so the production bundle is updated and changes are visible on the website.
+
 ## Code Conventions
 
 - PHP follows PSR-12 via Laravel Pint (`./vendor/bin/pint`)

@@ -8,7 +8,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\RegisterStoreController;
 use App\Http\Controllers\NoteShowController;
 use App\Http\Controllers\NoteStepsController;
-use App\Http\Controllers\SearchController;
+use App\Http\Controllers\PromptController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/auth/check', AuthCheckController::class);
@@ -25,7 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/{date}', NoteShowController::class)->name('note.show')->where('date', '\d{4}-\d{2}-\d{2}');
     Route::post('/note/steps', [NoteStepsController::class, 'store'])->name('note.steps.store');
     Route::get('/note/steps', [NoteStepsController::class, 'index'])->name('note.steps.index');
-    Route::get('/search', SearchController::class)->name('search');
+    Route::post('/prompt', PromptController::class);
 
     Route::post('/logout', LogoutController::class)->name('logout');
 });

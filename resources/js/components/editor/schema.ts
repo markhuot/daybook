@@ -171,5 +171,11 @@ export const schema = new Schema({
                 return ['em', 0];
             },
         },
+        code: {
+            parseDOM: [{ tag: 'code' }],
+            toDOM() {
+                return ['code', 0];
+            },
+        },
     },
 });

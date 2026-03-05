@@ -144,7 +144,6 @@ export default function Editor({ content, previousContent, onUpdate, editable = 
         }
 
         if (editableRef.current) {
-            view.focus();
             const tr = view.state.tr.setSelection(
                 TextSelection.create(view.state.doc, 1),
             );
