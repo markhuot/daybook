@@ -608,7 +608,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                             </div>
                             {weeklySummary && isDayToday && (
                                 <div
-                                    className="mt-8 mb-8 pl-20 pr-4 w-fit cursor-pointer"
+                                    className="mb-8 w-fit cursor-pointer pl-20 pr-4"
                                     onClick={() => setSummaryExpanded(prev => !prev)}
                                 >
                                     <div className="mb-2 flex items-center gap-1">
