@@ -21,6 +21,7 @@
     scroll-snap-type: x mandatory;
     width: 100vw;
     height: 100vh;
+    height: 100svh;
     /* Hide the scrollbar but keep scroll functionality */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
@@ -34,6 +35,7 @@
     flex: 0 0 100vw;
     width: 100vw;
     height: 100vh;
+    height: 100svh;
     scroll-snap-align: start;
     overflow-y: auto;
 }
@@ -45,6 +47,7 @@
     flex: 0 0 100vw;
     width: 100vw;
     height: 100vh;
+    height: 100svh;
     scroll-snap-align: start;
     overflow-y: auto;
 }
