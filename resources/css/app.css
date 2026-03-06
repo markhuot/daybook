@@ -13,6 +13,42 @@
     --color-highlight: #ef4444;
 }
 
+/* Horizontal scroll-snap container for day panels */
+.daybook-scroll-container {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    width: 100vw;
+    height: 100vh;
+    /* Hide the scrollbar but keep scroll functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.daybook-scroll-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.daybook-day-panel {
+    flex: 0 0 100vw;
+    width: 100vw;
+    height: 100vh;
+    scroll-snap-align: start;
+    overflow-y: auto;
+}
+
+/* Fixed backdrop behind sticky date header — sits inside scroll container
+   but fixed to the viewport top so the scrollbar renders on top of it */
+.daybook-day-panel {
+    position: relative;
+    flex: 0 0 100vw;
+    width: 100vw;
+    height: 100vh;
+    scroll-snap-align: start;
+    overflow-y: auto;
+}
+
 /* Dark mode font smoothing — light-on-dark text appears heavier due to halation */
 @media (prefers-color-scheme: dark) {
     body {
@@ -27,7 +63,7 @@
     flex: 1;
     padding-left: 5rem;
     padding-right: 2rem;
-    padding-bottom: 5rem;
+    padding-bottom: 50vh;
     font-size: inherit;
     line-height: inherit;
     color: inherit;
@@ -42,7 +78,26 @@
     font-weight: 400;
     margin-top: 1.5em;
     margin-bottom: 0.25em;
-    position: relative;
+    position: sticky;
+    top: 3.5rem;
+    z-index: 5;
+    background: white;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ProseMirror h1 {
+        background: #19171B;
+    }
+}
+
+.daybook-sticky-header {
+    background: white;
+}
+
+@media (prefers-color-scheme: dark) {
+    .daybook-sticky-header {
+        background: #19171B;
+    }
 }
 
 .ProseMirror > h1:first-child {
@@ -394,6 +449,8 @@
     text-decoration-color: color-mix(in srgb, var(--color-highlight) 25%, transparent);
     text-underline-offset: 2px;
     cursor: text;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
 
 .ProseMirror a:hover {

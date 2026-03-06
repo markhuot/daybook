@@ -91,15 +91,13 @@ class NoteShowController extends Controller
             }
         }
 
-        // Include summaries only for today's view, and only if fresh
-        $isToday = $date === $today;
+        // Include weekly summary if fresh — regardless of which date is being
+        // viewed, because the horizontal scroll may include today's panel.
         $user = $request->user();
         $ttl = config('summaries.ttl_seconds', 86400);
 
-        if ($isToday) {
-            if ($user->weekly_summary_at && $user->weekly_summary_at->diffInSeconds(now()) < $ttl) {
-                $props['weeklySummary'] = Str::markdown($user->weekly_summary);
-            }
+        if ($user->weekly_summary_at && $user->weekly_summary_at->diffInSeconds(now()) < $ttl) {
+            $props['weeklySummary'] = Str::markdown($user->weekly_summary);
         }
 
         return Inertia::render('Home', $props);
