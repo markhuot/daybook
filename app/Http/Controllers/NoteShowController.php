@@ -24,14 +24,14 @@ class NoteShowController extends Controller
 
         $note = $request->user()->notes()->where('date', $date)->first();
 
-        // Build a 10-day window using adaptive windowing.
-        // daysForward = min(4, days between viewed date and today)
-        // daysBack = 9 - daysForward
+        // Build an 11-day window using adaptive windowing.
+        // daysForward = min(5, days between viewed date and today)
+        // daysBack = 10 - daysForward
         // This weights the window toward the past when viewing dates near today.
         $viewedDate = Carbon::parse($date);
         $todayCarbon = Carbon::parse($today);
-        $daysForward = min(4, (int) abs($todayCarbon->diffInDays($viewedDate)));
-        $daysBack = 9 - $daysForward;
+        $daysForward = min(5, (int) abs($todayCarbon->diffInDays($viewedDate)));
+        $daysBack = 10 - $daysForward;
 
         $windowStart = $viewedDate->copy()->subDays($daysBack)->toDateString();
         $windowEnd = min($viewedDate->copy()->addDays($daysForward)->toDateString(), $today);

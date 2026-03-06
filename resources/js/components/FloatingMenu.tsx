@@ -72,7 +72,11 @@ export default function FloatingMenu() {
                                 {promptOpen ? '▽' : '△'}
                             </span>
                             <span>{promptOpen ? 'Hide prompt' : 'Show prompt'}</span>
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500/80 shadow-[0_0_10px_rgba(245,158,11,0.55)] dark:bg-amber-300/90" />
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="-translate-y-px text-amber-600 dark:text-amber-300">
+                                <path d="M10 0C10 6 6 10 0 10C6 10 10 14 10 20C10 14 14 10 20 10C14 10 10 6 10 0Z" />
+                                <path d="M20 6C20 8 18 10 16 10C18 10 20 12 20 14C20 12 22 10 24 10C22 10 20 8 20 6Z" />
+                                <path d="M18 16C18 18.5 16 20 14 20C16 20 18 22 18 24C18 22 20 20 22 20C20 20 18 18.5 18 16Z" />
+                            </svg>
                         </button>
 
                         <div className="relative">

@@ -65,6 +65,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [notesByDate, setNotesByDate] = useState<Record<string, NoteEntry>>(serverNotes);
     const [isLoadingLeftWindow, setIsLoadingLeftWindow] = useState(false);
+    const [isLoadingRightWindow, setIsLoadingRightWindow] = useState(false);
     // Track the currently visible date based on scroll position for URL/title updates
     const [visibleDate, setVisibleDate] = useState(note.date);
     const isLoadingLeftWindowRef = useRef(false);
@@ -74,6 +75,9 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
     const isRestoringScrollRef = useRef(false);
     const leftLoadDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const leftLoadLockRef = useRef(false);
+    const isLoadingRightWindowRef = useRef(false);
+    const rightLoadDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const rightLoadLockRef = useRef(false);
 
     // Scroll container ref for the horizontal scroll-snap
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -86,11 +90,18 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         pendingAnchorDateRef.current = null;
         isRestoringScrollRef.current = false;
         leftLoadLockRef.current = false;
+        isLoadingRightWindowRef.current = false;
+        rightLoadLockRef.current = false;
         if (leftLoadDebounceTimerRef.current) {
             clearTimeout(leftLoadDebounceTimerRef.current);
             leftLoadDebounceTimerRef.current = null;
         }
+        if (rightLoadDebounceTimerRef.current) {
+            clearTimeout(rightLoadDebounceTimerRef.current);
+            rightLoadDebounceTimerRef.current = null;
+        }
         setIsLoadingLeftWindow(false);
+        setIsLoadingRightWindow(false);
     }, [serverNotes, note.date]);
 
     // Build a sorted list of all dates in the window
@@ -124,12 +135,6 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         const before = dates[0];
         if (!before || isLoadingLeftWindowRef.current) return;
         pendingAnchorDateRef.current = anchorDate;
-        console.debug('[daybook:left-window] request:start', {
-            before,
-            anchorDate: pendingAnchorDateRef.current,
-            visibleDate: anchorDate,
-            sortedDatesLength: dates.length,
-        });
 
         isLoadingLeftWindowRef.current = true;
         setIsLoadingLeftWindow(true);
@@ -149,12 +154,6 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
 
                 setNotesByDate(prev => {
                     const incomingDates = Object.keys(incomingNotes).filter(date => !(date in prev));
-                    console.debug('[daybook:left-window] request:success', {
-                        incomingCount: Object.keys(incomingNotes).length,
-                        newCount: incomingDates.length,
-                        firstIncoming: Object.keys(incomingNotes)[0],
-                        lastIncoming: Object.keys(incomingNotes)[Object.keys(incomingNotes).length - 1],
-                    });
                     if (incomingDates.length === 0) {
                         pendingAnchorDateRef.current = null;
                         return prev;
@@ -168,9 +167,50 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             })
             .catch(() => {})
             .finally(() => {
-                console.debug('[daybook:left-window] request:done');
                 isLoadingLeftWindowRef.current = false;
                 setIsLoadingLeftWindow(false);
+            });
+    }, []);
+
+    const loadRightWindow = useCallback((anchorDate: string) => {
+        const dates = sortedDatesRef.current;
+        const after = dates[dates.length - 1];
+        if (!after || isLoadingRightWindowRef.current) return;
+        pendingAnchorDateRef.current = anchorDate;
+
+        isLoadingRightWindowRef.current = true;
+        setIsLoadingRightWindow(true);
+
+        fetch(`/note/window/right?after=${after}&days=10`, {
+            headers: {
+                'Accept': 'application/json',
+            },
+        })
+            .then(res => {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then((data: { notes?: Record<string, NoteEntry> } | null) => {
+                const incomingNotes = data?.notes;
+                if (!incomingNotes) return;
+
+                setNotesByDate(prev => {
+                    const incomingDates = Object.keys(incomingNotes).filter(date => !(date in prev));
+                    if (incomingDates.length === 0) {
+                        pendingAnchorDateRef.current = null;
+                        return prev;
+                    }
+
+                    return {
+                        ...prev,
+                        ...incomingNotes,
+                    };
+                });
+            })
+            .catch(() => {})
+            .finally(() => {
+                isLoadingRightWindowRef.current = false;
+                setIsLoadingRightWindow(false);
             });
     }, []);
 
@@ -193,14 +233,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         container.scrollLeft = targetScrollLeft;
         setVisibleDate(anchorDate);
         leftLoadLockRef.current = false;
-
-        console.debug('[daybook:left-window] anchor:apply', {
-            anchorDate,
-            anchorIndex,
-            sortedDatesLength: sortedDates.length,
-            panelWidth,
-            targetScrollLeft,
-        });
+        rightLoadLockRef.current = false;
 
         pendingAnchorDateRef.current = null;
         requestAnimationFrame(() => {
@@ -214,11 +247,16 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         const container = scrollContainerRef.current;
         if (!container) return;
 
+        if (todayDateIndex < 0 || !sortedDates.includes(localToday)) {
+            window.location.assign('/');
+            return;
+        }
+
         container.scrollTo({
             left: todayDateIndex * getPanelWidth(container),
             behavior: 'smooth',
         });
-    }, [todayDateIndex]);
+    }, [todayDateIndex, sortedDates, localToday]);
 
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -246,13 +284,6 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                 if (dateAtIndex) {
                     setVisibleDate(dateAtIndex);
                 }
-                console.debug('[daybook:scroll] visible', {
-                    scrollLeft: container.scrollLeft,
-                    rawIndex: index,
-                    clampedIndex,
-                    dateAtIndex,
-                    sortedDatesLength: dates.length,
-                });
                 ticking = false;
             });
         };
@@ -263,6 +294,10 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             if (leftLoadDebounceTimerRef.current) {
                 clearTimeout(leftLoadDebounceTimerRef.current);
                 leftLoadDebounceTimerRef.current = null;
+            }
+            if (rightLoadDebounceTimerRef.current) {
+                clearTimeout(rightLoadDebounceTimerRef.current);
+                rightLoadDebounceTimerRef.current = null;
             }
         };
     }, []);
@@ -295,11 +330,6 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                     if (!anchorDate) return;
 
                     leftLoadLockRef.current = true;
-                    console.debug('[daybook:left-window] trigger', {
-                        visibleDate: anchorDate,
-                        visibleIndex: clampedIndex,
-                        sortedDatesLength: dates.length,
-                    });
                     loadLeftWindow(anchorDate);
                 }
             }, 120);
@@ -308,6 +338,44 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         container.addEventListener('scroll', scheduleLeftWindowCheck, { passive: true });
         return () => container.removeEventListener('scroll', scheduleLeftWindowCheck);
     }, [loadLeftWindow]);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const scheduleRightWindowCheck = () => {
+            if (rightLoadDebounceTimerRef.current) {
+                clearTimeout(rightLoadDebounceTimerRef.current);
+            }
+
+            rightLoadDebounceTimerRef.current = setTimeout(() => {
+                if (isLoadingRightWindowRef.current || pendingAnchorDateRef.current || isRestoringScrollRef.current) {
+                    return;
+                }
+
+                const dates = sortedDatesRef.current;
+                if (dates.length === 0) return;
+
+                const index = Math.round(container.scrollLeft / getPanelWidth(container));
+                const clampedIndex = Math.max(0, Math.min(index, dates.length - 1));
+
+                if (clampedIndex <= dates.length - 7) {
+                    rightLoadLockRef.current = false;
+                }
+
+                if (clampedIndex > dates.length - 6 && !rightLoadLockRef.current) {
+                    const anchorDate = dates[clampedIndex];
+                    if (!anchorDate) return;
+
+                    rightLoadLockRef.current = true;
+                    loadRightWindow(anchorDate);
+                }
+            }, 120);
+        };
+
+        container.addEventListener('scroll', scheduleRightWindowCheck, { passive: true });
+        return () => container.removeEventListener('scroll', scheduleRightWindowCheck);
+    }, [loadRightWindow]);
 
     // Update browser URL and title when the visible date changes
     useEffect(() => {
