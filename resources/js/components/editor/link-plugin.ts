@@ -336,6 +336,45 @@ export function linkExpandPlugin(): Plugin {
 }
 
 // ---------------------------------------------------------------------------
+// Paste URL-as-link plugin
+// ---------------------------------------------------------------------------
+
+/**
+ * When the user has text selected and pastes a URL (text starting with
+ * `http`), convert the selected text into a link whose href is the pasted
+ * URL instead of replacing the selection with the URL text.
+ */
+export function pasteURLAsLinkPlugin(): Plugin {
+    return new Plugin({
+        props: {
+            handlePaste(view, event) {
+                const { state } = view;
+                const { selection } = state;
+
+                // Only act when there is a non-empty text selection.
+                if (selection.empty) return false;
+
+                const clipboardText = event.clipboardData?.getData('text/plain');
+                if (!clipboardText) return false;
+
+                // Check if the pasted content looks like a URL.
+                const trimmed = clipboardText.trim();
+                if (!trimmed.match(/^https?:\/\//)) return false;
+
+                const { from, to } = selection;
+                const mark = schema.marks.link.create({ href: trimmed });
+                const tr = state.tr;
+                tr.addMark(from, to, mark);
+                // Clear stored mark so subsequent typing is not linked.
+                tr.removeStoredMark(schema.marks.link);
+                view.dispatch(tr);
+                return true;
+            },
+        },
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Input rules
 // ---------------------------------------------------------------------------
 

@@ -19,6 +19,7 @@ import { Fragment, MarkType, Node, NodeType } from 'prosemirror-model';
 import { schema } from './schema';
 import {
     linkExpandPlugin,
+    pasteURLAsLinkPlugin,
     urlInputRule,
     markdownLinkInputRule,
 } from './link-plugin';
@@ -331,6 +332,7 @@ export function buildPlugins(options: CollabOptions = {}): Plugin[] {
         buildKeymap(),
         keymap(baseKeymap),
         linkExpandPlugin(),
+        pasteURLAsLinkPlugin(),
     ];
 
     if (options.version !== undefined) {
