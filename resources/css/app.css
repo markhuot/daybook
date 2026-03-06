@@ -59,9 +59,10 @@
 
 /* ProseMirror editor styles */
 .ProseMirror {
+    --editor-gutter-width: 5rem;
     outline: none;
     flex: 1;
-    padding-left: 5rem;
+    padding-left: var(--editor-gutter-width);
     padding-right: 2rem;
     padding-bottom: 50vh;
     font-size: inherit;
@@ -107,8 +108,17 @@
 .ProseMirror h1::before {
     content: '#';
     position: absolute;
+    top: 0;
+    bottom: 0;
     right: 100%;
-    margin-right: 0.35em;
+    width: var(--editor-gutter-width);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    box-sizing: border-box;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    background: inherit;
     color: var(--color-highlight);
     font-weight: 400;
 }

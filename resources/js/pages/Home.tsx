@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState, useLayoutEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { EditorView } from 'prosemirror-view';
 import { sendableSteps, receiveTransaction, getVersion } from 'prosemirror-collab';
@@ -55,18 +55,49 @@ function getCsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
+function getPanelWidth(container: HTMLDivElement): number {
+    return container.clientWidth || window.innerWidth;
+}
+
 export default function Home({ note, notes: serverNotes, previousContent, weeklySummary }: Props) {
     const localToday = useMemo(() => toDateString(new Date()), []);
 
     const [summaryExpanded, setSummaryExpanded] = useState(false);
+    const [notesByDate, setNotesByDate] = useState<Record<string, NoteEntry>>(serverNotes);
+    const [isLoadingLeftWindow, setIsLoadingLeftWindow] = useState(false);
+    // Track the currently visible date based on scroll position for URL/title updates
+    const [visibleDate, setVisibleDate] = useState(note.date);
+    const isLoadingLeftWindowRef = useRef(false);
+    const hasInitialScrollRef = useRef(false);
+    const sortedDatesRef = useRef<string[]>([]);
+    const pendingAnchorDateRef = useRef<string | null>(null);
+    const isRestoringScrollRef = useRef(false);
+    const leftLoadDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const leftLoadLockRef = useRef(false);
 
     // Scroll container ref for the horizontal scroll-snap
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        setNotesByDate(serverNotes);
+        setVisibleDate(note.date);
+        hasInitialScrollRef.current = false;
+        isLoadingLeftWindowRef.current = false;
+        pendingAnchorDateRef.current = null;
+        isRestoringScrollRef.current = false;
+        leftLoadLockRef.current = false;
+        if (leftLoadDebounceTimerRef.current) {
+            clearTimeout(leftLoadDebounceTimerRef.current);
+            leftLoadDebounceTimerRef.current = null;
+        }
+        setIsLoadingLeftWindow(false);
+    }, [serverNotes, note.date]);
+
     // Build a sorted list of all dates in the window
     const sortedDates = useMemo(() => {
-        return Object.keys(serverNotes).sort();
-    }, [serverNotes]);
+        return Object.keys(notesByDate).sort();
+    }, [notesByDate]);
+    sortedDatesRef.current = sortedDates;
 
     // Find the index of the current note's date so we can scroll to it on mount
     const currentDateIndex = useMemo(() => {
@@ -74,15 +105,120 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
         return idx >= 0 ? idx : sortedDates.length - 1;
     }, [sortedDates, note.date]);
 
+    const todayDateIndex = useMemo(() => {
+        const idx = sortedDates.indexOf(localToday);
+        return idx >= 0 ? idx : currentDateIndex;
+    }, [sortedDates, localToday, currentDateIndex]);
+
     // Scroll to the current date's panel on mount (no animation)
     useEffect(() => {
+        if (hasInitialScrollRef.current) return;
+        const container = scrollContainerRef.current;
+        if (!container || sortedDates.length === 0) return;
+        container.scrollLeft = currentDateIndex * getPanelWidth(container);
+        hasInitialScrollRef.current = true;
+    }, [currentDateIndex, sortedDates.length]);
+
+    const loadLeftWindow = useCallback((anchorDate: string) => {
+        const dates = sortedDatesRef.current;
+        const before = dates[0];
+        if (!before || isLoadingLeftWindowRef.current) return;
+        pendingAnchorDateRef.current = anchorDate;
+        console.debug('[daybook:left-window] request:start', {
+            before,
+            anchorDate: pendingAnchorDateRef.current,
+            visibleDate: anchorDate,
+            sortedDatesLength: dates.length,
+        });
+
+        isLoadingLeftWindowRef.current = true;
+        setIsLoadingLeftWindow(true);
+
+        fetch(`/note/window/left?before=${before}&days=10`, {
+            headers: {
+                'Accept': 'application/json',
+            },
+        })
+            .then(res => {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then((data: { notes?: Record<string, NoteEntry> } | null) => {
+                const incomingNotes = data?.notes;
+                if (!incomingNotes) return;
+
+                setNotesByDate(prev => {
+                    const incomingDates = Object.keys(incomingNotes).filter(date => !(date in prev));
+                    console.debug('[daybook:left-window] request:success', {
+                        incomingCount: Object.keys(incomingNotes).length,
+                        newCount: incomingDates.length,
+                        firstIncoming: Object.keys(incomingNotes)[0],
+                        lastIncoming: Object.keys(incomingNotes)[Object.keys(incomingNotes).length - 1],
+                    });
+                    if (incomingDates.length === 0) {
+                        pendingAnchorDateRef.current = null;
+                        return prev;
+                    }
+
+                    return {
+                        ...incomingNotes,
+                        ...prev,
+                    };
+                });
+            })
+            .catch(() => {})
+            .finally(() => {
+                console.debug('[daybook:left-window] request:done');
+                isLoadingLeftWindowRef.current = false;
+                setIsLoadingLeftWindow(false);
+            });
+    }, []);
+
+    useLayoutEffect(() => {
+        const anchorDate = pendingAnchorDateRef.current;
+        if (!anchorDate) return;
+
         const container = scrollContainerRef.current;
         if (!container) return;
-        container.scrollLeft = currentDateIndex * window.innerWidth;
-    }, [currentDateIndex]);
 
-    // Track the currently visible date based on scroll position for URL/title updates
-    const [visibleDate, setVisibleDate] = useState(note.date);
+        const anchorIndex = sortedDates.indexOf(anchorDate);
+        if (anchorIndex < 0) {
+            pendingAnchorDateRef.current = null;
+            return;
+        }
+
+        const panelWidth = getPanelWidth(container);
+        const targetScrollLeft = anchorIndex * panelWidth;
+        isRestoringScrollRef.current = true;
+        container.scrollLeft = targetScrollLeft;
+        setVisibleDate(anchorDate);
+        leftLoadLockRef.current = false;
+
+        console.debug('[daybook:left-window] anchor:apply', {
+            anchorDate,
+            anchorIndex,
+            sortedDatesLength: sortedDates.length,
+            panelWidth,
+            targetScrollLeft,
+        });
+
+        pendingAnchorDateRef.current = null;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                isRestoringScrollRef.current = false;
+            });
+        });
+    }, [sortedDates]);
+
+    const scrollToToday = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        container.scrollTo({
+            left: todayDateIndex * getPanelWidth(container),
+            behavior: 'smooth',
+        });
+    }, [todayDateIndex]);
 
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -93,19 +229,85 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             if (ticking) return;
             ticking = true;
             requestAnimationFrame(() => {
-                const index = Math.round(container.scrollLeft / window.innerWidth);
-                const clampedIndex = Math.max(0, Math.min(index, sortedDates.length - 1));
-                const dateAtIndex = sortedDates[clampedIndex];
+                if (isRestoringScrollRef.current) {
+                    ticking = false;
+                    return;
+                }
+
+                const dates = sortedDatesRef.current;
+                if (dates.length === 0) {
+                    ticking = false;
+                    return;
+                }
+
+                const index = Math.round(container.scrollLeft / getPanelWidth(container));
+                const clampedIndex = Math.max(0, Math.min(index, dates.length - 1));
+                const dateAtIndex = dates[clampedIndex];
                 if (dateAtIndex) {
                     setVisibleDate(dateAtIndex);
                 }
+                console.debug('[daybook:scroll] visible', {
+                    scrollLeft: container.scrollLeft,
+                    rawIndex: index,
+                    clampedIndex,
+                    dateAtIndex,
+                    sortedDatesLength: dates.length,
+                });
                 ticking = false;
             });
         };
 
         container.addEventListener('scroll', handleScroll, { passive: true });
-        return () => container.removeEventListener('scroll', handleScroll);
-    }, [sortedDates]);
+        return () => {
+            container.removeEventListener('scroll', handleScroll);
+            if (leftLoadDebounceTimerRef.current) {
+                clearTimeout(leftLoadDebounceTimerRef.current);
+                leftLoadDebounceTimerRef.current = null;
+            }
+        };
+    }, []);
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const scheduleLeftWindowCheck = () => {
+            if (leftLoadDebounceTimerRef.current) {
+                clearTimeout(leftLoadDebounceTimerRef.current);
+            }
+
+            leftLoadDebounceTimerRef.current = setTimeout(() => {
+                if (isLoadingLeftWindowRef.current || pendingAnchorDateRef.current || isRestoringScrollRef.current) {
+                    return;
+                }
+
+                const dates = sortedDatesRef.current;
+                if (dates.length === 0) return;
+
+                const index = Math.round(container.scrollLeft / getPanelWidth(container));
+                const clampedIndex = Math.max(0, Math.min(index, dates.length - 1));
+
+                if (clampedIndex >= 6) {
+                    leftLoadLockRef.current = false;
+                }
+
+                if (clampedIndex < 5 && !leftLoadLockRef.current) {
+                    const anchorDate = dates[clampedIndex];
+                    if (!anchorDate) return;
+
+                    leftLoadLockRef.current = true;
+                    console.debug('[daybook:left-window] trigger', {
+                        visibleDate: anchorDate,
+                        visibleIndex: clampedIndex,
+                        sortedDatesLength: dates.length,
+                    });
+                    loadLeftWindow(anchorDate);
+                }
+            }, 120);
+        };
+
+        container.addEventListener('scroll', scheduleLeftWindowCheck, { passive: true });
+        return () => container.removeEventListener('scroll', scheduleLeftWindowCheck);
+    }, [loadLeftWindow]);
 
     // Update browser URL and title when the visible date changes
     useEffect(() => {
@@ -127,10 +329,10 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
 
     // Compute previousContent for today when it has no content.
     const effectivePreviousContent = useMemo(() => {
-        const todayEntry = serverNotes[localToday];
+        const todayEntry = notesByDate[localToday];
         if (todayEntry?.content) return undefined;
         return previousContent;
-    }, [localToday, serverNotes, previousContent]);
+    }, [localToday, notesByDate, previousContent]);
 
     // --- Collab: step-sending and receiving ---
 
@@ -231,7 +433,7 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
     }, []);
 
     // Listen for broadcast steps from other tabs via Echo/Reverb
-    const todayNoteEntry = serverNotes[localToday];
+    const todayNoteEntry = notesByDate[localToday];
     const channelName = todayNoteEntry?.id ? `note.${todayNoteEntry.id}` : '';
 
     useEcho(
@@ -310,14 +512,14 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
             className="daybook-scroll-container"
         >
             {sortedDates.map((dateStr) => {
-                const entry = serverNotes[dateStr];
+                const entry = notesByDate[dateStr];
                 const dateObj = parseDateLocal(dateStr);
                 const isDayToday = dateStr === localToday;
 
                 return (
                     <div key={dateStr} className="daybook-day-panel">
-                        <div className="mx-auto flex h-full max-w-4xl flex-col pt-24" style={{ fontSize: '18px', lineHeight: '1.75' }}>
-                            <div className="daybook-sticky-header sticky top-0 z-10 mb-8">
+                        <div className="mx-auto flex min-h-full max-w-4xl flex-col pt-24" style={{ fontSize: '18px', lineHeight: '1.75' }}>
+                            <div className="daybook-sticky-header sticky top-0 z-10 mb-8 py-2">
                                 <p className="pl-20 pr-4 text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">
                                     {formatWeekday(dateObj)}
                                 </p>
@@ -326,9 +528,13 @@ export default function Home({ note, notes: serverNotes, previousContent, weekly
                                         {formatMonth(dateObj)} <span className="text-highlight">{formatDay(dateObj)}</span>
                                     </span>
                                     {!isDayToday && (
-                                        <span className="text-sm text-gray-400 dark:text-gray-500">
-                                            read only
-                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={scrollToToday}
+                                            className="cursor-pointer rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+                                        >
+                                            Today &rarr;
+                                        </button>
                                     )}
                                 </div>
                             </div>
